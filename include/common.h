@@ -5,6 +5,7 @@
 #include "math.h"
 #include "string.h"
 #include "float.h"
+#include "features.h"
 #ifdef _OPENMP
 #include "omp.h"
 #endif

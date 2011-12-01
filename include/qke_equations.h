@@ -7,16 +7,21 @@
 #include "mat_io.h"
 /**************************************************************/
 
-struct qke_param{
+typedef struct qke_param_structure{
   char output_filename[_FILENAMESIZE_]; //Where to write output.
+  int evolver;   //Which time integrator to use
   int nproc;     //Number of cores available.
   int Nres;      //Number of resinances
   int neq;       //Number of equations
   int Tres;      //Entries in time/Temperature vector.
   int is_electron; //True if we have electron neutrino, False otherwise.
   int evolve_vi;
+  double rtol;   //Relative tolerance of integrator
+  double abstol; //Absolute tolerance of integrator
   double alpha;  //Sampling density aound resonances (0=most dense, 1=uniform)
   double rs;     //Regulator for sterile sector: (0 turns off regulation)
+  double T_initial; //Initial temperature
+  double T_final; //Final temperature
   double *Tvec;  //Temperature vector (Tvec[Tres])
   double *xi;    //Resonances in v-space.
   double *ui;    //Resonances in u-space, ui[Nres]
@@ -30,6 +35,8 @@ struct qke_param{
   double *y_0;   //Workspace for qke_derivs, for Newton method.
   double *maxstep;
   int vres;      //Number of momentum bins in v-space. (Resolution)
+  int v_left;    //Boundaries of v, usually just 0 and 1.
+  int v_right;
   double *v_grid;  //v_grid[vres]
   double *u_grid;
   double *x_grid;
@@ -54,12 +61,15 @@ struct qke_param{
   double theta_zero; //Active sterile mixing angle
   double delta_m2;		//squared mass difference
   double L_initial;
+  double L_final; //Final value of abs(L)
   double mu_div_T_initial;
   double C_alpha;
   double **mat;      //(Nres+2)x(Nres+2) matrix used in more than one occasion for solving linear systems.
   double *vv;        //Workarray for LU decomposition.
   int *indx;         //Permutation vector for LU decomposition.
-  struct background_structure *pbs;
+  int *Ai;  //Row indices of jacobian
+  int *Ap;  //Column indices of jacobian
+  struct background_structure pbs;
   double Vx;
   double V0;
   double V1;
@@ -86,7 +96,7 @@ struct qke_param{
   int V1_handle; //Position of given matrix in output file
   int Vx_handle; //Position of given matrix in output file
   int VL_handle; //Position of given matrix in output file
-};
+} qke_param;
 
 /**
  * Boilerplate for C++
@@ -94,14 +104,14 @@ struct qke_param{
 #ifdef __cplusplus
 extern "C" {
 #endif
-  int u_of_x(double x, double *u, double *dudx, struct qke_param *param);
-  int init_qke_param(struct qke_param *pqke, int Nres, int vres, int Tres);
-  int free_qke_param(struct qke_param *pqke);
-  int get_resonances_xi(double T, double L, struct qke_param *param);
-  int x_of_u(double u, double *x, struct qke_param *param);
+  int u_of_x(double x, double *u, double *dudx, qke_param *param);
+  int init_qke_param(qke_param *pqke);
+  int free_qke_param(qke_param *pqke);
+  int get_resonances_xi(double T, double L, qke_param *param);
+  int x_of_u(double u, double *x, qke_param *param);
   int nonlinear_rhs(double *y, double *Fy, void *param);
-  int qke_initial_conditions(double Ti, double *y, struct qke_param *pqke);
-  int qke_init_output(struct qke_param *pqke);
+  int qke_initial_conditions(double Ti, double *y, qke_param *pqke);
+  int qke_init_output(qke_param *pqke);
   int qke_store_output(double t,
 		       double *y,
 		       double *dy,

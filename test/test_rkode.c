@@ -1,12 +1,13 @@
 #include "test_rkode.h"
 #include "evolver_rk45.h"
 #include "evolver_ndf15.h"
+#include "evolver_radau5.h"
 int main(){
   
   int i;
   double x0,xf;
   double y[2];
-  int tres=150;
+  int tres=600;
   double t_vec[tres];
   double nu;
   int NU;
@@ -25,14 +26,14 @@ int main(){
   for (i=0; i<tres; i++)
     t_vec[i] = x0+i*(xf-x0)/(tres-1);
 
-  evolver_rkdp45(besderivs,
+  evolver_radau5(besderivs,
 		    x0,
 		    xf,
 		    y,
 		    useless,
 		    2,
 		    &nu,
-		    1e-6,
+		    1e-4,
 		    1e-15,
 		    t_vec,
 		    tres,

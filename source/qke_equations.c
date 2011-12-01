@@ -3,15 +3,14 @@
  */
 #include "common.h"
 #include "qke_equations.h"
-#ifdef _OPENMP
-#include "omp.h"
-#endif
-int init_qke_param(struct qke_param *pqke, int Nres, int vres, int Tres){
-  int i,idx;
+int init_qke_param(qke_param *pqke){
+  int i,j,k,idx,neq,nz;
   double k1,k2;
-  pqke->Nres = Nres;
-  pqke->vres = vres;
-  pqke->Tres = Tres;
+  double Nres, vres, Tres;
+  int **J;
+  Nres = pqke->Nres;
+  vres = pqke->vres;
+  Tres = pqke->Tres;
   pqke->Tvec = malloc(sizeof(double)*pqke->Tres);
   pqke->xi = malloc(sizeof(double)*pqke->Nres);
   pqke->ui = malloc(sizeof(double)*pqke->Nres);
@@ -33,11 +32,27 @@ int init_qke_param(struct qke_param *pqke, int Nres, int vres, int Tres){
     pqke->mat[i] = malloc(sizeof(double)*(pqke->Nres + 2));
   pqke->vv = malloc(sizeof(double)*(pqke->Nres + 2));
   pqke->indx = malloc(sizeof(int)*(pqke->Nres + 2));
+
   //Do some calculations for the u(x) mapping:
   k1 = pqke->xmin/pqke->xext;
   k2 = pqke->xmax/pqke->xext;
   pqke->eps2 = (1+k1)/(k2-k1);
   pqke->eps1 = k1*(1+pqke->eps2);
+
+  //Some secondary initialisations:
+  for(i=0; i<vres; i++){
+    pqke->v_grid[i] = pqke->v_left+
+      i*(pqke->v_right-pqke->v_left)/(vres-1.0); 
+  }
+  for(i=0; i<Tres; i++){
+    pqke->Tvec[i] = pqke->T_initial+
+      i*(pqke->T_final-pqke->T_initial)/(Tres-1.0); 
+  }
+  if (pqke->is_electron == _TRUE_)
+    pqke->C_alpha = 1.27;
+  else
+    pqke->C_alpha = 0.92;
+  
   
   //Set up the indices:
   idx = 0;
@@ -67,12 +82,110 @@ int init_qke_param(struct qke_param *pqke, int Nres, int vres, int Tres){
   }
 
   //Last thing to do:
-  pqke->neq = idx;
+  neq = idx;
+  pqke->neq = neq;
+
+  //Pattern for Jacobi matrix:
+  pqke->Ap = malloc(sizeof(int)*(neq+1));
+  pqke->Ai = malloc(sizeof(int)*neq*neq);
+
+  //Construct Jacobian pattern:
+  J = malloc(sizeof(int *)*neq);
+  J[0] = calloc(neq*neq,sizeof(int)); 
+ for (i=1; i<neq; i++)
+   J[i] = J[i-1]+neq;
+  
+  //Establish diagonal (just to be sure)
+  for (i=0; i<neq; i++)
+    J[i][i] = 1;
+  //Everything couples to L through the parametrisation:
+  for (i=0; i<neq; i++)
+    J[i][pqke->index_L] = 1;
+
+
+  //F-L dependence:
+  for (i=0; i<vres; i++)
+    J[pqke->index_L][pqke->index_Py_minus+i] = 1;
+  //Loop over grid:
+  for (j=0; j<vres; j++){
+    //F-Pa_plus[j] dependence:
+    for (k=max(0,j-1); k<min(vres,j+2); k++)
+      J[pqke->index_Pa_plus+j][pqke->index_Pa_plus+k] = 1;
+    J[pqke->index_Pa_plus+j][pqke->index_Py_plus+j] = 1;
+    //F-Pa_minus[j] dependence:
+    for (k=max(0,j-1); k<min(vres,j+2); k++)
+      J[pqke->index_Pa_minus+j][pqke->index_Pa_minus+k] = 1;
+    J[pqke->index_Pa_minus+j][pqke->index_Py_minus+j] = 1;
+    //F-Ps_plus[j] dependence:
+    for (k=max(0,j-1); k<min(vres,j+2); k++)
+      J[pqke->index_Ps_plus+j][pqke->index_Ps_plus+k] = 1;
+    J[pqke->index_Ps_plus+j][pqke->index_Py_plus+j] = 1;
+    //F-Ps_minus[j] dependence:
+    for (k=max(0,j-1); k<min(vres,j+2); k++)
+      J[pqke->index_Ps_minus+j][pqke->index_Ps_minus+k] = 1;
+    J[pqke->index_Ps_minus+j][pqke->index_Py_minus+j] = 1;
+    //F-Px_plus[j] dependence:
+    for (k=max(0,j-1); k<min(vres,j+2); k++)
+      J[pqke->index_Px_plus+j][pqke->index_Px_plus+k] = 1;
+    J[pqke->index_Px_plus+j][pqke->index_L] = 1;
+    for (k=0; k<vres; k++)
+      J[pqke->index_Px_plus+j][pqke->index_Pa_plus+k] = 1;
+    J[pqke->index_Px_plus+j][pqke->index_Py_plus+j] = 1;
+    J[pqke->index_Px_plus+j][pqke->index_Py_minus+j] = 1;
+    //F-Px_minus[j] dependence:
+    for (k=max(0,j-1); k<min(vres,j+2); k++)
+      J[pqke->index_Px_minus+j][pqke->index_Px_minus+k] = 1;
+    J[pqke->index_Px_minus+j][pqke->index_L] = 1;
+    for (k=0; k<vres; k++)
+      J[pqke->index_Px_minus+j][pqke->index_Pa_plus+k] = 1;
+    J[pqke->index_Px_minus+j][pqke->index_Py_plus+j] = 1;
+    J[pqke->index_Px_minus+j][pqke->index_Py_minus+j] = 1;
+    //F-Py_plus[j] dependence:
+    for (k=max(0,j-1); k<min(vres,j+2); k++)
+      J[pqke->index_Py_plus+j][pqke->index_Py_plus+k] = 1;
+    J[pqke->index_Py_plus+j][pqke->index_L] = 1;
+    for (k=0; k<vres; k++)
+      J[pqke->index_Py_plus+j][pqke->index_Pa_plus+k] = 1;
+    J[pqke->index_Py_plus+j][pqke->index_Ps_plus+j] = 1;
+    J[pqke->index_Py_plus+j][pqke->index_Px_plus+j] = 1;
+    J[pqke->index_Py_plus+j][pqke->index_Px_minus+j] = 1;
+    J[pqke->index_Py_plus+j][pqke->index_Py_plus+j] = 1;
+    //F-Py_minus[j] dependence:
+    for (k=max(0,j-1); k<min(vres,j+2); k++)
+      J[pqke->index_Py_minus+j][pqke->index_Py_minus+k] = 1;
+    J[pqke->index_Py_minus+j][pqke->index_L] = 1;
+    J[pqke->index_Py_minus+j][pqke->index_Pa_minus+j] = 1;
+    for (k=0; k<vres; k++)
+      J[pqke->index_Py_minus+j][pqke->index_Pa_plus+k] = 1;
+    J[pqke->index_Py_minus+j][pqke->index_Ps_minus+j] = 1;
+    J[pqke->index_Py_minus+j][pqke->index_Px_plus+j] = 1;
+    J[pqke->index_Py_minus+j][pqke->index_Px_minus+j] = 1;
+    J[pqke->index_Py_minus+j][pqke->index_Py_minus+j] = 1;
+  }
+
+
+  //Store pattern in sparse column compressed form:
+  pqke->Ap[0] = 0;
+  nz = 0;
+  for (i=0; i<neq; i++){
+    for (j=0; j<neq; j++){
+      if (J[j][i] == 1){
+	pqke->Ai[nz] = j;
+	nz++;
+      }
+    }
+    pqke->Ap[i+1] = nz;
+  }
+  pqke->Ai = realloc(pqke->Ai,sizeof(int)*nz);
+
+  free(J[0]);
+  free(J);
   return _SUCCESS_;
 };
 
-int free_qke_param(struct qke_param *pqke){
+int free_qke_param(qke_param *pqke){
   int i;
+  background_free_dof(&(pqke->pbs));
   free(pqke->xi);
   free(pqke->ui);
   free(pqke->vi);
@@ -94,12 +207,14 @@ int free_qke_param(struct qke_param *pqke){
   free(pqke->mat);
   free(pqke->vv);
   free(pqke->indx);
+  free(pqke->Ap);
+  free(pqke->Ai);
 
   return _SUCCESS_;
 };
 
 
-int get_resonances_xi(double T, double L, struct qke_param *param){
+int get_resonances_xi(double T, double L, qke_param *param){
 	double phi,chi;
 	double *xi=param->xi;
 	double *dxidT = param->dxidT;
@@ -151,7 +266,7 @@ int get_resonances_xi(double T, double L, struct qke_param *param){
 };
 
 
-int u_of_x(double x, double *u, double *dudx, struct qke_param *param){
+int u_of_x(double x, double *u, double *dudx, qke_param *param){
   double x_plus_xext;
   x_plus_xext = x+param->xext;
   *u = (x*(1.0+param->eps2)-param->xext*param->eps1)/x_plus_xext;
@@ -159,13 +274,13 @@ int u_of_x(double x, double *u, double *dudx, struct qke_param *param){
   return _SUCCESS_;
 };
 
-int x_of_u(double u, double *x, struct qke_param *param){
+int x_of_u(double u, double *x, qke_param *param){
   *x = param->xext*(u+param->eps1)/(1+param->eps2-u);
   return _SUCCESS_;
 };
 
 int nonlinear_rhs(double *y, double *Fy, void *param){
-  struct qke_param *pqke=param;
+  qke_param *pqke=param;
   double b=y[0];
   double *vi=y+1;
   double alpha = pqke->alpha;
@@ -183,7 +298,7 @@ int nonlinear_rhs(double *y, double *Fy, void *param){
   return _SUCCESS_;
 }
 
-int qke_initial_conditions(double Ti, double *y, struct qke_param *pqke){
+int qke_initial_conditions(double Ti, double *y, qke_param *pqke){
   /** Set initial conditions at temperature Ti: */
   int i, evolve_vi;
   double mu_div_T,x;
@@ -256,7 +371,7 @@ int qke_initial_conditions(double Ti, double *y, struct qke_param *pqke){
   return _SUCCESS_;
 };
 
-int qke_init_output(struct qke_param *pqke){
+int qke_init_output(qke_param *pqke){
   int Tres=pqke->Tres;
   int vres=pqke->vres;
   int Nres=pqke->Nres;
@@ -315,34 +430,6 @@ int qke_init_output(struct qke_param *pqke){
   return _SUCCESS_;
 }
 
-/**
-int qke_store_output(double t,
-			    double *y,
-			    double *dy,
-			    int index_t,
-			    void *param,
-			    ErrorMsg error_message){
-  int i,j;
-  struct qke_param *pqke=param;
-  pqke->L_array[index_t] = y[pqke->index_L];
-  for (j=0; j<pqke->Nres; j++){
-    pqke->x_res_array[index_t*pqke->Nres+j] = pqke->xi[j];
-  }
-  for (i=0; i<pqke->vres; i++){
-    pqke->Pa_plus_array[index_t*pqke->vres+i]=y[pqke->index_Pa_plus+i];
-    pqke->Pa_minus_array[index_t*pqke->vres+i]=y[pqke->index_Pa_minus+i];
-    pqke->Ps_plus_array[index_t*pqke->vres+i]=y[pqke->index_Ps_plus+i];
-    pqke->Ps_minus_array[index_t*pqke->vres+i]=y[pqke->index_Ps_minus+i];
-    pqke->Px_plus_array[index_t*pqke->vres+i]=y[pqke->index_Px_plus+i];
-    pqke->Px_minus_array[index_t*pqke->vres+i]=y[pqke->index_Px_minus+i];
-    pqke->Py_plus_array[index_t*pqke->vres+i]=y[pqke->index_Py_plus+i];
-    pqke->Py_minus_array[index_t*pqke->vres+i]=y[pqke->index_Py_minus+i];
-    pqke->x_grid_array[index_t*pqke->vres+i]=pqke->x_grid[i];
-  }
-  return _SUCCESS_;
-};
-*/
-
 
 int qke_store_output(double T,
 			    double *y,
@@ -350,7 +437,7 @@ int qke_store_output(double T,
 			    int index_t,
 			    void *param,
 			    ErrorMsg error_message){
-  struct qke_param *pqke=param;
+  qke_param *pqke=param;
   int vres=pqke->vres;
   int Nres=pqke->Nres;
   int i;
@@ -413,7 +500,7 @@ int qke_print_variables(double t,
 			double *dy,
 			void *param,
 			ErrorMsg error_message){
-  //struct qke_param *pqke=param;
+  //qke_param *pqke=param;
  
   return _SUCCESS_;
 };
@@ -423,7 +510,7 @@ int qke_derivs(double T,
 	       double *dy, 
 	       void *param,
 	       ErrorMsg error_message){
-  struct qke_param *pqke=param;
+  qke_param *pqke=param;
   double L;
   int i,j,niter;
   double *y_0 = pqke->y_0;
@@ -453,7 +540,7 @@ int qke_derivs(double T,
   double rs, mu_div_T_ini;
   double gamma_j, beta_j;
   int idx,idx_step_l,idx_step_r;
-  //printf("** Calling qke_derivs **\n");
+
   alpha = pqke->alpha;
   L = y[pqke->index_L]*_L_SCALE_;
   get_resonances_xi(T,L,pqke);
@@ -496,13 +583,13 @@ int qke_derivs(double T,
     pqke->a[i] = ui[i]-alpha*vi[i];
 
   //Get degrees of freedom from background:
-  background_getdof(T,NULL,&gentr,pqke->pbs);
+  background_getdof(T,NULL,&gentr,&(pqke->pbs));
   /** Use Friedmann equation in radiation dominated universe: 
       (The radiation approximation breaks down long before there 
       is a difference in g and gS) */
   H = sqrt(8.0*pow(_PI_,3)*gentr/90.0)*T*T/_M_PL_;
 
-    /** Get partial derivatives of vi with respect to T by solving a 
+  /** Get partial derivatives of vi with respect to T by solving a 
       linear system A*dvidT = B(duidT):
   */
   for(j=0; j<pqke->Nres; j++){
@@ -511,7 +598,6 @@ int qke_derivs(double T,
     }
   }
   u1 = ui[0];
-  uN = ui[pqke->Nres-1];
   v1 = vi[0];
   vN = vi[pqke->Nres-1];
   
@@ -522,8 +608,6 @@ int qke_derivs(double T,
     pqke->mat[j+1][1] = gamma_j;
     pqke->mat[j+1][j+1] -= beta_j;
     pqke->mat[j+1][j+2] += beta_j;
-    //printf("Gamma: %g, Beta: %g.\n",gamma_j,beta_j);
-    //printf("u1 u2 v1 v2: %g %g %g %g\n",ui[0],ui[1],vi[0],vi[1]);
     /** Setup RHS: */
     dvidT[j] = duidT[j+1]-duidT[j]-0.25*pow(vi[j+1]/v1-vi[j]/v1,3)*duidT[0];
   }
@@ -531,40 +615,11 @@ int qke_derivs(double T,
   pqke->mat[pqke->Nres][pqke->Nres] = alpha+3.0*pqke->b*pow(1.0-vN,2);
   dvidT[pqke->Nres-1] = duidT[pqke->Nres-1]+pow((1.0-vN)/v1,3)*duidT[0];
 
-
-  /** Debug area: 
-  double xx[3];
-  double mat[4][4];
-  double omega[2];
-  double kappa;
-  
-  omega[0] = vi[1]-vi[0];
-  omega[1] = vi[1];
-  x[0] = duidT[1]-duidT[0];
-  x[1] = 0.0;//HERE HERE HERE
-
-   Debug finished */
   //LU decomposition of matrix:
-
   lasagna_call(ludcmp(pqke->mat,pqke->Nres,pqke->indx,&lu_sgn,pqke->vv),
 	       error_message,error_message);
-
   lasagna_call(lubksb(pqke->mat,pqke->Nres,pqke->indx,dvidT-1),
 	       error_message,error_message);
-
-  /**  printf("dvidT = [%g, %g],dvidT_debug=[%g,%g].\n",
-  	 dvidT[0],dvidT[1],dvidT_debug[0],dvidT_debug[1]);
-
-  printf("rel. err: %g, %g\n",
-	 (1.0-dvidT_debug[0]/dvidT[0])*1e10,
-	 (1.0-dvidT_debug[1]/dvidT[1])*1e10);
-  */
-  /** Debug area:
-      printf("dvidT= (%e, %e)\n",dvidT[0],dvidT[1]);
-      printf("First eq: %g=0. Second eq: %g=0\n",
-      (alpha+0.75*pqke->b*pow(vi[1]-vi[0],2))*(dvidT[1]-dvidT[0])+0.25*pow((vi[1]-vi[0])/v1,3)*(duidT[0]+(2.0*alpha-3.0*u1/v1)*dvidT[0])+duidT[0]-duidT[1],
-      duidT[1]+pow((1.0-vN)/v1,3)*duidT[0]+pow((1.0-vN)/v1,3)*(2.0*alpha-3.0*u1/v1)*dvidT[0]-(alpha+3.0*pqke->b*(1.0-vN)*(1.0-vN))*dvidT[1]);
-  */
 
   /** Calculate x and u on the v-grid along with derivatives dvdu and dudT:*/
   dbdT = (duidT[0]+(2.0*alpha-3.0*u1/v1)*dvidT[0])/pow(v1,3);
@@ -582,10 +637,6 @@ int qke_derivs(double T,
     if (pqke->indx[i]==pqke->indx[i+1])
       continue;
     //Loop over each segment:
-#ifdef _OPENMP
-    omp_set_num_threads(pqke->nproc);
-#pragma omp parallel for default(shared) private(j,daidT) schedule(static)
-#endif
     for (j=pqke->indx[i]; j<pqke->indx[i+1]; j++){
       daidT = duidT[i]-alpha*dvidT[i];
       u_grid[j] = alpha*v_grid[j]+pqke->a[i]+pqke->b*pow(v_grid[j]-vi[i],3);
@@ -606,18 +657,10 @@ int qke_derivs(double T,
   pqke->Vx = pqke->delta_m2/(2.0*T)*sin(2.0*pqke->theta_zero);
   pqke->V0 = -pqke->delta_m2/(2.0*T)*cos(2.0*pqke->theta_zero);
   
-
   /** Integrated quantities needed. We integrate in x space: */
   I_VxPy_minus = 0.0;
   I_f0Pa_plus = 0.0;
   I_rho_ss = 0.0;
-#ifdef _OPENMP
-  omp_set_num_threads(pqke->nproc);
-#pragma omp parallel for \
-default(shared) private(i,x,xp1,f0,f0p1,Vx,Vxp1,Py_minus,Py_minusp1,Pa_plus,Pa_plusp1,PsPs,PsPsp1)  \
-schedule(static)    \
-reduction(+:I_VxPy_minus,I_f0Pa_plus,I_rho_ss)
-#endif
   for (i=0; i<pqke->vres-1; i++){
     x = pqke->x_grid[i];
     xp1 = pqke->x_grid[i+1];
@@ -636,7 +679,6 @@ reduction(+:I_VxPy_minus,I_f0Pa_plus,I_rho_ss)
     I_f0Pa_plus += 0.5*(xp1-x)*(x*x*f0*Pa_plus+xp1*xp1*f0p1*Pa_plusp1);
     I_rho_ss += 0.5*(xp1-x)*(x*x*f0*PsPs+xp1*xp1*f0p1*PsPsp1);
   }
-  
   //Set V1:
   if (pqke->is_electron == _TRUE_){
     pqke->V1 = -14.0*sqrt(2.0)*_PI_*_PI_/45.0*_G_F_/_M_W_/_M_W_*pow(T,5)*
@@ -659,12 +701,6 @@ reduction(+:I_VxPy_minus,I_f0Pa_plus,I_rho_ss)
     }
   }
 
-#ifdef _OPENMP
-  omp_set_num_threads(pqke->nproc);
-#pragma omp parallel for      \
-default(shared) private(i,x,Vx,V0,V1,Gamma,D,Pa_plus,Pa_minus,Ps_plus,Ps_minus,Px_plus,Px_minus,Py_plus,Py_minus,mu_div_T,rs,mu_div_T_ini,feq_plus,feq_minus,f0,feq_ini,dudTdvdu,idx_step_l,idx_step_r,delta_v,idx)  \
-schedule(static) 
-#endif
   for (i=0; i<pqke->vres; i++){
     x = pqke->x_grid[i];
     Vx = pqke->Vx/x;
@@ -672,11 +708,6 @@ schedule(static)
     V1 = pqke->V1*x;
     Gamma = pqke->C_alpha*_G_F_*_G_F_*x*pow(T,5);
     D = 0.5*Gamma;
-    /**
-       printf("n+nbar = %g\n",1.0/(3.0*_ZETA3_)*I_f0Pa_plus);
-       printf("V1 from code: %g, V1 from paper: %g.\n",V1,
-	   -2.0*sqrt(2.0)*_G_F_*_ZETA3_*pow(T,4)*p*A_alpha/(_PI_*_PI_*_M_W_*_M_W_));  
-    */
     
     Pa_plus = y[pqke->index_Pa_plus+i];
     Pa_minus = y[pqke->index_Pa_minus+i];
@@ -687,14 +718,7 @@ schedule(static)
     Py_plus = y[pqke->index_Py_plus+i];
     Py_minus = y[pqke->index_Py_minus+i];
   
-    /** Mu from L, assuming mu<<T and Eq.2.24 in Nucl. Phys. B349 1991 754-790.
-	We solve the cubic equation using the chebyshev cube root.
-	Edit: Just assuming L>0 leads to (x=mu_div_T)
-	L = 1/(2*__ZETA3__)*(Li_3(-exp(-x))-Li_3(-exp(x))) =>
-	L = 1/(12*_ZETA3_)*x(x²*pi²).
-	For L>0, x>0 there is only one root, which can be calculated using the
-	Chebyshev Cubic root. This formula also gives x=0 for L=0.
-    */
+    //Solving mu from L, using the chebyshev cubic root:
     mu_div_T = -2*_PI_/sqrt(3.0)*
       sinh(1.0/3.0*asinh(-18.0*sqrt(3.0)*_ZETA3_*L/pow(_PI_,3)));
     //Regulator for sterile population:

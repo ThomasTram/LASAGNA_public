@@ -6,8 +6,7 @@
 
 int main() {
   double tmp1,tmp2;
-  struct background_structure bg_struct;
-  struct qke_param qke_struct;
+  qke_param qke_struct;
   double *y_inout;
   double Tmid;
   int *interp_idx;
@@ -27,11 +26,10 @@ int main() {
     sinsq2theta_exp[i] = sinsq2theta_exp_min + 
       i*(sinsq2theta_exp_max-sinsq2theta_exp_min)/(nt-1.0);
   for (i=0; i<nm; i++)
-    deltamsq[i] = pow(10.0,deltamsq_exp_min+i*deltamsq_exp_max/(nm-1.0));
+    deltamsq[i] = -pow(10.0,deltamsq_exp_min+i*deltamsq_exp_max/(nm-1.0));
 
-  strncpy(bg_struct.dof_filename,"dsdofHP_B.dat",_FILENAMESIZE_);
-  printf("%s",bg_struct.dof_filename);
-  background_init_dof(&bg_struct);
+  strncpy(qke_struct.pbs.dof_filename,"dsdofHP_B.dat",_FILENAMESIZE_);
+  background_init_dof(&qke_struct.pbs);
 
 
 #ifdef _OPENMP
@@ -45,8 +43,7 @@ int main() {
     deltamsq2 = deltamsq[j/5];
     qke_struct.theta_zero = 0.5*asin(pow(10.0,0.5*sinsq2theta_exp2));
     qke_struct.delta_m2 = deltamsq2; //-10e-18;    
-    qke_struct.pbs = &bg_struct;
-
+  
     /** Parameters for the u(x) transformation must be known
 	before calling init_qke_param.*/
     qke_struct.xext = 3.1;
@@ -54,7 +51,10 @@ int main() {
     qke_struct.xmax = 100.0; //100.0;
     qke_struct.nproc = 1;
     qke_struct.evolve_vi = _FALSE_;
-    init_qke_param(&qke_struct,2,256,100); //vres Tres
+    qke_struct.Nres = 2;
+    qke_struct.vres = 256;
+    qke_struct.Tres = 100;
+    init_qke_param(&qke_struct); //vres Tres
     /** Do stuff */
     y_inout = calloc(qke_struct.neq,sizeof(double));
   
@@ -109,6 +109,8 @@ int main() {
 				1e-14, 
 				qke_struct.Tvec, 
 				qke_struct.Tres,
+				qke_struct.Ap,
+				qke_struct.Ai,
 				qke_store_output,
 				NULL,
 				error_message);
@@ -119,6 +121,5 @@ int main() {
     free(interp_idx);
     free_qke_param(&qke_struct);  
   }
-  background_free_dof(&bg_struct);
   return _SUCCESS_;
 }

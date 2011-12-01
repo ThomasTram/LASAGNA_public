@@ -7,7 +7,7 @@ close all;
 mbin = 1;
 filename = 'output/dump.mat';
 load(filename)
-S = load(filename);
+%S = load(filename);
 %Use T in MeV:
 T = T*1000;
 %Construct linear combinations of (more) physical quantities:

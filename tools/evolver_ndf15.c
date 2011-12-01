@@ -68,9 +68,11 @@ int evolver_ndf15(
 		  int neq, 
 		  void * parameters_and_workspace_for_derivs,
 		  double rtol, 
-		  double minimum_variation, 
+		  double abstol, 
 		  double * t_vec, 
 		  int tres,
+		  int *Ap,
+		  int *Ai,
 		  int (*output)(double x,double y[],double dy[],int index_x,void * parameters_and_workspace,
 				ErrorMsg error_message),
 		  int (*print_variables)(double x, double y[], double dy[], void *parameters_and_workspace,
@@ -81,7 +83,7 @@ int evolver_ndf15(
   double G[5]={1.0,3.0/2.0,11.0/6.0,25.0/12.0,137.0/60.0};
   double alpha[5]={-37.0/200,-1.0/9.0,-8.23e-2,-4.15e-2, 0};
   double invGa[5],erconst[5];
-  double abstol = 1e-5, eps=1e-16, threshold=abstol/rtol;
+  double threshold=abstol/rtol;
   int maxit=4, maxk=2;
 	
   /* Logicals: */
@@ -238,7 +240,7 @@ int evolver_ndf15(
   stepstat[2] += nfenj;
   Jcurrent = _TRUE_; /* True */
 	
-  hmin = 16.0*eps*fabs(t);
+  hmin = 16.0*DBL_EPSILON*fabs(t);
   /*Calculate initial step */
   rh = 0.0;
 
@@ -254,7 +256,7 @@ int evolver_ndf15(
 	
   absh = max(absh, hmin);
   h = tdir * absh;
-  tdel = (t + tdir*min(sqrt(eps)*max(fabs(t),fabs(t+h)),absh)) - t;
+  tdel = (t + tdir*min(sqrt(DBL_EPSILON)*max(fabs(t),fabs(t+h)),absh)) - t;
 
   lasagna_call((*derivs)(t+tdel,y+1,tempvec1+1,parameters_and_workspace_for_derivs,error_message),
 	     error_message,error_message);
@@ -288,6 +290,37 @@ int evolver_ndf15(
 	
   hinvGak = h*invGa[k-1];
   nconhk = 0; 	/*steps taken with current h and k*/
+
+  /** If we have a pattern, we apply it here and do one 
+      call to numjac with the correct pattern: */
+  if ((Ap!=NULL)&&(Ai!=NULL)){
+    for (ii=0; ii<=neq; ii++){
+      jac.spJ->Ap[ii] = Ap[ii];
+    }
+    for (ii=0; ii<Ap[neq]; ii++){
+      jac.spJ->Ai[ii] = Ai[ii];
+    }
+    jac.pattern_supplied = _TRUE_;
+    lasagna_call(numjac((*derivs),
+			t,
+			y,
+			f0,
+			&jac,
+			&nj_ws,
+			abstol,
+			neq,
+			&nfenj,
+			parameters_and_workspace_for_derivs,
+			error_message),
+		 error_message,error_message);
+    stepstat[3] += 1;
+    stepstat[2] += nfenj;
+    Jcurrent = _TRUE_;
+    calc_C(&jac);
+    /* Calculate the optimal ordering: */
+    sp_amd(jac.Cp, jac.Ci, neq, jac.cnzmax,
+	   jac.Numerical->q,jac.Numerical->wamd);
+  }
   lasagna_call(new_linearisation(&jac,hinvGak,neq,error_message),
 	     error_message,error_message);
   stepstat[4] += 1;
@@ -297,10 +330,10 @@ int evolver_ndf15(
   done = _FALSE_;
   at_hmin = _FALSE_;
   while (done==_FALSE_){
-    hmin = 100*DBL_MIN*fabs(t);
+    hmin = 16*DBL_EPSILON*fabs(t);
     maxtmp = max(hmin,absh);
     absh = min(hmax, maxtmp);
-    if (fabs(absh-hmin)<100*eps){
+    if (fabs(absh-hmin)<100*DBL_EPSILON){
       /* If the stepsize has not changed */
       if (at_hmin==_TRUE_){
 	absh = abshlast;	/*required by stepsize recovery */
@@ -363,7 +396,7 @@ int evolver_ndf15(
 	  difkp1[j] = 0.0;
 	  maxtmp = max(fabs(ynew[j]),fabs(y[j]));
 	  invwt[j] = 1.0 / max(maxtmp,threshold);
-	  maxtmp = 100*eps*fabs(ynew[j]*invwt[j]);
+	  maxtmp = 100*DBL_EPSILON*fabs(ynew[j]*invwt[j]);
 	  minnrm = max(minnrm,maxtmp);
 	}
 	/* Iterate with simplified Newton method. */
@@ -484,8 +517,8 @@ int evolver_ndf15(
       }
       //printf("Max Err index: %d\n",maxerr);
       err = err * erconst[k-1];
-      printf("%e %d %e %e .. v = [%g, %g]\n",
-	     t,maxerr,err,absh,ynew[neq-1],ynew[neq]);
+      /**printf("%e %d %e %e .. v = [%g, %g]\n",
+	 t,maxerr,err,absh,ynew[neq-1],ynew[neq]);*/
       if (err>rtol){
 	/*Step failed */
 	stepstat[1]+= 1;
@@ -548,40 +581,52 @@ int evolver_ndf15(
     while ((next<tres)&&(tdir * (tnew - t_vec[next]) >= 0.0)){
       /* Do we need to write output? */
       if (tnew==t_vec[next]){
-	lasagna_call((*output)(t_vec[next],ynew+1,f0+1,next,parameters_and_workspace_for_derivs,error_message),
-		   error_message,error_message);
-
-	if (print_variables != NULL){
-	  lasagna_call((*print_variables)(t_vec[next],ynew+1,f0+1,
-					parameters_and_workspace_for_derivs,error_message),
+	lasagna_call((*output)(t_vec[next],
+			       ynew+1,
+			       f0+1,
+			       next,
+			       parameters_and_workspace_for_derivs,
+			       error_message),
 		     error_message,error_message);
+	if (print_variables != NULL){
+	  lasagna_call((*print_variables)(t_vec[next],
+					  ynew+1,
+					  f0+1,
+					  parameters_and_workspace_for_derivs,
+					  error_message),
+		       error_message,error_message);
 	}
-
       }
       else {
 	/*Interpolate if we have overshot sample values*/
-	interp_from_dif(t_vec[next],tnew,ynew,h,dif,k,yinterp,ypinterp,yppinterp,interpidx,neq,2);				
-	lasagna_call((*output)(t_vec[next],yinterp+1,ypinterp+1,next,parameters_and_workspace_for_derivs,
-			     error_message),error_message,error_message);
-
+	interp_from_dif(t_vec[next],
+			tnew,
+			ynew,
+			h,
+			dif,
+			k,
+			yinterp,
+			ypinterp,
+			yppinterp,
+			interpidx,
+			neq,
+			2);				
+	lasagna_call((*output)(t_vec[next],
+			       yinterp+1,
+			       ypinterp+1,
+			       next,
+			       parameters_and_workspace_for_derivs,
+			       error_message),error_message,error_message);
 	if (print_variables != NULL){
-	  lasagna_call((*print_variables)(t_vec[next],ynew+1,f0+1,
-					parameters_and_workspace_for_derivs,error_message),
-		     error_message,error_message);
+	  lasagna_call((*print_variables)(t_vec[next],
+					  ynew+1,
+					  f0+1,
+					  parameters_and_workspace_for_derivs,
+					  error_message),
+		       error_message,error_message);
 	}
       }
-      next++;
-      //Stop condition:
-      if (fabs(y_inout[0]*1e-15)>5e-6){
-	printf("Stop condition met.\n Statistics: [%d %d %d %d %d %d] \n",stepstat[0],stepstat[1],
-	     stepstat[2],stepstat[3],stepstat[4],stepstat[5]);
-	return _SUCCESS_;
-      }
-	
-    }
-    if (verbose > 5){
-       printf("\n Statistics: [%d %d %d %d %d %d] \n",stepstat[0],stepstat[1],
-	     stepstat[2],stepstat[3],stepstat[4],stepstat[5]);
+      next++;	
     }
 
     /** End of output **/
@@ -647,6 +692,14 @@ int evolver_ndf15(
     t = tnew;
     eqvec(ynew,y,neq);
     Jcurrent = _FALSE_;
+    if (fabs(y[1]*1e-15)>5e-6){
+      //Stop condition
+      lasagna_call((*output)(t,y+1,f0+1,next,
+			     parameters_and_workspace_for_derivs,
+			     error_message),error_message,error_message);
+      printf("Stop condition met...\n");
+      break;
+    }
   }
 
   /* a last call is compulsory to ensure that all quantitites in
@@ -904,25 +957,46 @@ int new_linearisation(struct jacobian *jac,double hinvGak,int neq,ErrorMsg error
       }
     }
     /* Matrix constructed... */
-    if((jac->new_jacobian==_TRUE_)&&(jac->repeated_pattern<1)){
-      /*I have a new pattern, and I have not done a LU decomposition 
-	since the last jacobian calculation, so	I need to do a full 
-	sparse LU-decomposition: */
-      /* Find the sparsity pattern C = J + J':*/
-      calc_C(jac);
-      /* Calculate the optimal ordering: */
-      sp_amd(jac->Cp, jac->Ci, neq, jac->cnzmax,
-	     jac->Numerical->q,jac->Numerical->wamd);
-      /* if the next line is uncomented, the code uses natural ordering instead of AMD ordering */
-      /*jac->Numerical->q = NULL;*/
-      funcreturn = sp_ludcmp(jac->Numerical, jac->spJ, 1e-3);
-      lasagna_test(funcreturn == _FAILURE_,error_message,
-		 "Failure in sp_ludcmp. Possibly singular matrix!");
-      jac->new_jacobian = _FALSE_;
+    if (jac->pattern_supplied == _TRUE_){
+      if (jac->new_jacobian == _TRUE_){
+	//printf("Full calculation...\n");
+	//We should do a full LU decomposition again:
+	funcreturn = sp_ludcmp(jac->Numerical, jac->spJ, 1e-3);
+	lasagna_test(funcreturn == _FAILURE_,error_message,
+		     "Failure in sp_ludcmp. Possibly singular matrix!");
+	/** Column ordering in spJ_cx->Numerical is (should be) pointing 
+	    to column_ordering in spJ->Numerical.
+	    Same with Ai and Ap.
+	*/
+	jac->new_jacobian = _FALSE_;
+      }
+      else{
+	//	printf("Refactorisation..\n");
+	sp_refactor(jac->Numerical, jac->spJ);
+      }
+      jac->refactor_count++;
     }
     else{
-      /* I have a repeated pattern, so I can just refactor:*/
-      sp_refactor(jac->Numerical, jac->spJ);
+      if((jac->new_jacobian==_TRUE_)&&(jac->repeated_pattern<1)){
+	/*I have a new pattern, and I have not done a LU decomposition 
+	  since the last jacobian calculation, so	I need to do a full 
+	  sparse LU-decomposition: */
+	/* Find the sparsity pattern C = J + J':*/
+	calc_C(jac);
+	/* Calculate the optimal ordering: */
+	sp_amd(jac->Cp, jac->Ci, neq, jac->cnzmax,
+	       jac->Numerical->q,jac->Numerical->wamd);
+	/* if the next line is uncomented, the code uses natural ordering instead of AMD ordering */
+	/*jac->Numerical->q = NULL;*/
+	funcreturn = sp_ludcmp(jac->Numerical, jac->spJ, 1e-3);
+	lasagna_test(funcreturn == _FAILURE_,error_message,
+		     "Failure in sp_ludcmp. Possibly singular matrix!");
+	jac->new_jacobian = _FALSE_;
+      }
+      else{
+	/* I have a repeated pattern, so I can just refactor:*/
+	sp_refactor(jac->Numerical, jac->spJ);
+      }
     }
   }
   else{
@@ -1026,7 +1100,7 @@ int numjac(
 	implementation in MATLAB, but a feature for recognising sparsity in the
 	jacobian and taking advantage of that has been added.
   */
-  double eps=1e-16, br=pow(eps,0.875),bl=pow(eps,0.75),bu=pow(eps,0.25);
+  double eps=DBL_EPSILON, br=pow(eps,0.875),bl=pow(eps,0.75),bu=pow(eps,0.25);
   double facmin=pow(eps,0.78),facmax=0.1;
   int logjpos, pattern_broken;
   double tmpfac,difmax2=0.,del2,ffscale;
@@ -1085,15 +1159,15 @@ int numjac(
   }
 
   /* Sparse calculation?*/
-  if ((jac->use_sparse)&&(jac->repeated_pattern >= jac->trust_sparse)){
+  if ((jac->pattern_supplied==_TRUE_)||((jac->use_sparse)&&(jac->repeated_pattern >= jac->trust_sparse))){
     /* printf("\n Sparse calculation..neq=%d, has grouping=%d",neq,jac->has_grouping);*/
     /* Everything done sparse'ly. Do we have a grouping? */
     if (jac->has_grouping==0){
-      jac->max_group = column_grouping(jac->spJ,jac->col_group,jac->col_wi);
+      jac->max_group = column_grouping2(jac->spJ,jac->col_group,jac->col_wi);
       jac->has_grouping = 1;
     }
     colmax = jac->max_group+1;
-    /*	printf("\n				->groups=%d/%d.",colmax,neq);  */
+    printf("->groups=%d/%d.\n",colmax,neq);
     for(j=1;j<=colmax;j++){
       /*loop over groups */
       group = j-1;
@@ -1101,7 +1175,8 @@ int numjac(
 	/*Add y-vector.. */
 	nj_ws->ydel_Fdel[i][j] = y[i];
 	/*Add del of all groupmembers:*/
-	if(jac->col_group[i-1]==group) nj_ws->ydel_Fdel[i][j] +=nj_ws->del[i];
+	if(jac->col_group[i-1]==group) 
+	  nj_ws->ydel_Fdel[i][j] +=nj_ws->del[i];
       }
     }
   }
@@ -1128,13 +1203,15 @@ int numjac(
 	       error_message,error_message);
 
     *nfe+=1;
-    for(i=1;i<=neq;i++) nj_ws->ydel_Fdel[i][j] = nj_ws->ffdel[i];
+    for(i=1;i<=neq;i++) 
+      nj_ws->ydel_Fdel[i][j] = nj_ws->ffdel[i];
   }
 
 
   /*Using the Fdel array, form the jacobian and construct max-value arrays.
     First we do it for the sparse case, then for the normal case:*/
-  if ((jac->use_sparse)&&(jac->repeated_pattern >= jac->trust_sparse)){
+  if ((jac->pattern_supplied==_TRUE_)||
+      ((jac->use_sparse)&&(jac->repeated_pattern >= jac->trust_sparse))){
     /* Sparse case:*/
     for(j=0;j<neq;j++){
       /*Loop over columns, and assign corresponding group:*/
@@ -1240,11 +1317,15 @@ int numjac(
 	    /* The new difference is more significant, so
 	       use the column computed with this increment.
 	       This depends on wether we are in sparse mode or not: */
-	    if ((jac->use_sparse)&&(jac->repeated_pattern >= jac->trust_sparse)){
-	      for(i=Ap[j-1];i<Ap[j];i++) jac->xjac[i]=nj_ws->tmp[Ai[i]];
+	    if ((jac->pattern_supplied==_TRUE_)||
+		((jac->use_sparse)&&
+		 (jac->repeated_pattern >= jac->trust_sparse))){
+	      for(i=Ap[j-1];i<Ap[j];i++) 
+		jac->xjac[i]=nj_ws->tmp[Ai[i]];
 	    }
 	    else{
-	      for(i=1;i<=neq;i++) dFdy[i][j]=nj_ws->tmp[i];
+	      for(i=1;i<=neq;i++) 
+		dFdy[i][j]=nj_ws->tmp[i];
 	    }
 	    /* Adjust fac for the next call to numjac. */
 	    ffscale = max(fabs(nj_ws->ffdel[rowmax2]),nj_ws->absFvalue[rowmax2]);
@@ -1268,7 +1349,7 @@ int numjac(
      matrix, deduce the sparsity pattern, compare with the old pattern, and write the new sparse Jacobi matrix.
      If I do this cleverly, I only have to walk through the jacobian once, and I don't need any local storage.*/
 
-  if ((jac->use_sparse)&&(jac->repeated_pattern < jac->trust_sparse)){
+  if ((jac->use_sparse)&&(jac->pattern_supplied==_FALSE_)&&(jac->repeated_pattern < jac->trust_sparse)){
     nz=0; /*Number of non-zeros */
     Ap[0]=0; /*<-Always is.. */
     pattern_broken = _FALSE_;
@@ -1361,6 +1442,9 @@ int initialize_jacobian(struct jacobian *jac, int neq, ErrorMsg error_message){
   /* Number of times a pattern is repeated before we trust it. */
   jac->has_grouping = 0;
   jac->has_pattern = 0;
+  jac->pattern_supplied = 0;
+  jac->refactor_max = 20;
+  jac->refactor_count = 0;
   jac->sparse_stuff_initialized=0;
 	
   /*Setup memory for the pointers of the dense method:*/
@@ -1383,12 +1467,7 @@ int initialize_jacobian(struct jacobian *jac, int neq, ErrorMsg error_message){
   if (jac->use_sparse){
     jac->sparse_stuff_initialized = 1;
 
-    jac->xjac=(double*)(jac->luidx+neq+1);
-    jac->col_group=(int*)(jac->xjac+jac->max_nonzero);
-    jac->col_wi=jac->col_group+neq;
-    jac->Cp=jac->col_wi+neq;
-    jac->Ci=jac->Cp+neq+1;
-
+    
     lasagna_alloc(jac->xjac,sizeof(double)*jac->max_nonzero,error_message);
     lasagna_alloc(jac->col_group,sizeof(int)*neq,error_message);
     lasagna_alloc(jac->col_wi,sizeof(int)*neq,error_message);

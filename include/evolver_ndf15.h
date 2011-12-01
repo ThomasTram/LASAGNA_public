@@ -6,49 +6,52 @@
 /**************************************************************/
 
 struct jacobian{
-/*Stuff for normal method: */
-	double **dfdy;
-	double *jacvec; /*Stores experience gained from subsequent calls */
-	double **LU;
-	double *LUw;
-	int *luidx;
-	/*Sparse stuff:*/
-	int use_sparse;
-	int sparse_stuff_initialized;
-	int max_nonzero;     /*Maximal number of non-zero entries to be considered sparse */
-	int repeated_pattern;
-	int trust_sparse; /* Number of times a pattern is repeated (actually included) before we trust it. */
-	int has_grouping;
-	int has_pattern;
-	int new_jacobian; /* True if sp_ludcmp has not been run on the current jacobian. */
-	int cnzmax;
-	int *col_group; /* Column grouping. Groups go from 0 to max_group*/
-	int *col_wi; /* Workarray for column grouping*/
-	int max_group; /*Number of columngroups -1 */
-	sp_mat *spJ; /* Stores the matrix we want to decompose */
-	double *xjac; /*Stores the values of the sparse jacobian. (Same pattern as spJ) */
-	sp_num *Numerical; /*Stores the LU decomposition.*/
-	int *Cp; /* Stores the column pointers of the spJ+spJ' sparsity pattern. */
-	int *Ci; /* Stores the row indices of the  spJ+spJ' sparsity pattern. */
+  /*Stuff for normal method: */
+  double **dfdy;
+  double *jacvec; /*Stores experience gained from subsequent calls */
+  double **LU;
+  double *LUw;
+  int *luidx;
+  /*Sparse stuff:*/
+  int use_sparse;
+  int sparse_stuff_initialized;
+  int max_nonzero;     /*Maximal number of non-zero entries to be considered sparse */
+  int repeated_pattern;
+  int trust_sparse; /* Number of times a pattern is repeated (actually included) before we trust it. */
+  int pattern_supplied;
+  int refactor_count;
+  int refactor_max;
+  int has_grouping;
+  int has_pattern;
+  int new_jacobian; /* True if sp_ludcmp has not been run on the current jacobian. */
+  int cnzmax;
+  int *col_group; /* Column grouping. Groups go from 0 to max_group*/
+  int *col_wi; /* Workarray for column grouping*/
+  int max_group; /*Number of columngroups -1 */
+  sp_mat *spJ; /* Stores the matrix we want to decompose */
+  double *xjac; /*Stores the values of the sparse jacobian. (Same pattern as spJ) */
+  sp_num *Numerical; /*Stores the LU decomposition.*/
+  int *Cp; /* Stores the column pointers of the spJ+spJ' sparsity pattern. */
+  int *Ci; /* Stores the row indices of the  spJ+spJ' sparsity pattern. */
 };
 
 struct numjac_workspace{
-	/* Allocate vectors and matrices: */
-	double *yscale;
-	double *del;
-	double * Difmax;
-	double * absFdelRm;
-	double * absFvalue;
-	double * absFvalueRm;
-	double * Fscale;
-	double * ffdel;
-	double * yydel;
-	double * tmp;
+  /* Allocate vectors and matrices: */
+  double *yscale;
+  double *del;
+  double * Difmax;
+  double * absFdelRm;
+  double * absFvalue;
+  double * absFvalueRm;
+  double * Fscale;
+  double * ffdel;
+  double * yydel;
+  double * tmp;
 
-	double **ydel_Fdel;
+  double **ydel_Fdel;
 
-	int * logj;
-	int * Rowmax;
+  int * logj;
+  int * Rowmax;
 };
 
 /**
@@ -87,9 +90,11 @@ int evolver_ndf15(
 	int neq, 
 	void * parameters_and_workspace_for_derivs,
 	double rtol, 
-	double minimum_variation, 
+	double abstol, 
 	double * t_vec, 
 	int t_res,
+	int *Ap,
+	int *Ai,
 	int (*output)(double x,double y[],double dy[],int index_x,void * parameters_and_workspace,
 		ErrorMsg error_message),
 	int (*print_variables)(double x, double y[], double dy[], void *parameters_and_workspace,
