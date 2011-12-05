@@ -5,14 +5,13 @@
 #include "lasagna_loop.h"
 
 int main() {
-  double tmp1,tmp2;
   qke_param qke_struct;
   double *y_inout;
   double Tmid;
   int *interp_idx;
-  double Ti,Tf,Vl,Vr,sinsq2theta;
+  double Ti,Tf,Vl,Vr;
   ErrorMsg error_message;
-  int i,j,k;
+  int i,j;
   int func_return;
 
   int nt=5, nm=5;

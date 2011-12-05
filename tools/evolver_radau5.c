@@ -54,10 +54,10 @@ int evolver_radau5(
   double ei[3] = 
     {(-13.0-7.0*sqrt(6.0))/3.0, (-13.0+7.0*sqrt(6.0))/3.0, -1.0/3.0};
 
-  double B[9], C[9], Ainv[9] = 
+  /**  double B[9], C[9], Ainv[9] = 
     {3.22474487139158905,   1.167840084690405495,   -0.253197264742180826,
      -3.56784008469040549,   0.775255128608410951,   1.053197264742180826,
-     5.53197264742180826,   -7.53197264742180826,   5.0};
+     5.53197264742180826,   -7.53197264742180826,   5.0}; */
 
   double gamma_hat = 3.0-pow(3.0,1.0/3.0)+pow(3.0,2.0/3.0);
   double alpha_hat = 0.5*(6.0+pow(3.0,1.0/3.0)-pow(3.0,2.0/3.0));
@@ -72,14 +72,14 @@ int evolver_radau5(
 
   int stepstat[6] = {0, 0, 0, 0, 0, 0};
   int newt_iter, tdir, next, nfenj;
-  double abshlast, absh, abshnew; 
-  double theta, theta_k, theta_k_old, eta=1.0, conv_est, conv_cor;
+  double abshlast=0.0, absh, abshnew; 
+  double theta, theta_k, theta_k_old=1.0, eta=1.0, conv_est, conv_cor;
   double t, tdel, h, abshmin, rh;
-  double norm_dW, norm_dW_old, norm_err;
+  double norm_dW, norm_dW_old=1.0, norm_err;
   double z1,z2,z3,tau;
 
   int first_step = _TRUE_, Newton_converged, got_ynew, J_current;
-  int reuse_stepsize, reuse_jacobian, last_failed=_TRUE_, break_next;
+  int reuse_stepsize, reuse_jacobian, last_failed=_TRUE_;
 
   double (*error_norm)(double *y, double *err_y, double threshold, int neq);
 
@@ -313,7 +313,7 @@ int evolver_radau5(
       }
       debug_stop=1;
       theta = 1e-3;
-      abshnew = 0.5*absh;
+      abshnew = step_fac_newt_failed*absh;
       for (newt_iter = 1; newt_iter<=newt_iter_max; newt_iter++){
 	//printf("Newton iteration: %d/%d.\n",newt_iter,newt_iter_max);
 	if (newt_iter != 1){

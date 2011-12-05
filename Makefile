@@ -20,10 +20,10 @@ CC = gcc
 
 #CCFLAG   = -O0 -Wall -ggdb -g
 #LDFLAG   = -O0 -Wall -ggdb -g
-CCFLAG   = -O4 -Wall -g --fast-math
-LDFLAG   = -O4 -Wall -g --fast-math
-#CCFLAG   = -O4 -Wall -fopenmp --fast-math
-#LDFLAG   = -O4 -Wall -fopenmp --fast-math
+CCFLAG   = -O4 -Wall -g -pg --fast-math
+LDFLAG   = -O4 -Wall -g -pg --fast-math
+#CCFLAG   = -fast -w2
+#LDFLAG   = -fast -w2
 #CCFLAG   = -complex-limited-range -g -fast -B/usr/lib/i386-linux-gnu -I/usr/include/i386-linux-gnu
 #LDFLAG   = -complex-limited-range -g -fast -B/usr/lib/i386-linux-gnu -I/usr/include/i386-linux-gnu
 
@@ -61,7 +61,7 @@ C_TEST = $(addprefix test/, $(addsuffix .c,$(basename $(TEST_MATIO) $(TEST_PROFI
 C_MAIN = $(addprefix main/, $(addsuffix .c,$(basename $(LASAGNA) $(LASAGNA_LOOP) $(EXTRACT_MATRIX))))
 C_ALL = $(C_MAIN) $(C_TOOLS) $(C_SOURCE) $(C_TEST)
 H_ALL = $(addprefix include/, common.h $(addsuffix .h, $(basename $(notdir $(C_ALL)))))
-MISC_FILES = load_and_plot.m lepton_number.m dsdofHP_B.dat parameters.ini Makefile
+MISC_FILES = make_loop_dir.sh main/prepare_job.c load_and_plot.m lepton_number.m dsdofHP_B.dat parameters.ini Makefile
 
 all: lasagna lasagna_loop extract_matrix
 

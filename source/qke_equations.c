@@ -407,8 +407,8 @@ int qke_init_output(qke_param *pqke){
   mat_add_matrix(outf,"Vx",miDOUBLE,Tres,1,&(pqke->Vx_handle));
   mat_add_matrix(outf,"VL",miDOUBLE,Tres,1,&(pqke->VL_handle));
   //Add constant parameters:
-  mat_add_matrix(outf,"L_initial",miDOUBLE,1,2,&handle);
-  mat_add_matrix(outf,"delta_m2",miDOUBLE,1,2,&handle);
+  mat_add_matrix(outf,"L_initial",miDOUBLE,1,1,&handle);
+  mat_add_matrix(outf,"delta_m2_theta_zero",miDOUBLE,1,2,&handle);
   mat_add_matrix(outf,"is_electron",miINT32,1,1,&handle);
   mat_add_matrix(outf,"Tres_vres",miINT32,1,2,&handle);
   mat_add_matrix(outf,"xmin_xext_xmax",miDOUBLE,1,3,&handle);
@@ -417,7 +417,8 @@ int qke_init_output(qke_param *pqke){
   //Temperature - we could write it here, but its nice to have non-computed
   //T values = 0:
   //mat_write_data(outf,"T",pqke->Tvec,0,Tres);
-  mat_write_data(outf,"delta_m2",&(pqke->delta_m2),0,1);
+  tmp_array[0] = pqke->delta_m2; tmp_array[1] = pqke->theta_zero;
+  mat_write_data(outf,"delta_m2_theta_zero",&(tmp_array),0,2);
   mat_write_data(outf,"is_electron",&(pqke->is_electron),0,1);
   tmp_array_int[0]=pqke->Tres; tmp_array_int[1]=pqke->vres;
   mat_write_data(outf,"Tres_vres",tmp_array_int,0,2);
@@ -526,7 +527,7 @@ int qke_derivs(double T,
   double *dvdu_grid=pqke->dvdu_grid;
   double *dudT_grid=pqke->dudT_grid;
   double tol_newton = 1e-12;
-  double vN,uN,u1,v1,alpha,wi;
+  double vN,u1,v1,alpha,wi;
   double gentr,H;
   double lu_sgn;
   double daidT,dbdT;

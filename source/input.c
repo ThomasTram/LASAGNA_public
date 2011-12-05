@@ -3,7 +3,6 @@ int input_init_from_arguments(int argc,
 			      char **argv,
 			      qke_param *pqke,
 			      ErrorMsg errmsg){
-  int i;
   struct file_content fc;
   char input_file[_ARGUMENT_LENGTH_MAX_];
   fc.size = 0;
@@ -34,14 +33,10 @@ int input_init_from_arguments(int argc,
 int input_init(struct file_content *pfc,
 	       qke_param *pqke,
 	       ErrorMsg errmsg){
-  int flag1,flag2,flag3;
-  double param1,param2,param3;
-  int entries_read;
-  int int1, fileentries;
-   double * pointer1;
+  int flag1,flag2;
+  double param1,param2;
+  int int1;
   char string1[_ARGUMENT_LENGTH_MAX_];
-
-  double sinsq2theta;
 
   //Read default values:
   lasagna_call(input_default_params(pqke),
