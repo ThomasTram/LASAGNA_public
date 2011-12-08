@@ -18,8 +18,10 @@ int main(int argc, char *argv[]){
 			     &cols,
 			     &rows,
 			     &data_type);
-  if (funcreturn == _FAILURE_)
+  if (funcreturn == _FAILURE_){
       printf("Couldn't extract temperature T from file %s..\n",argv[1]);
+      return _FAILURE_;
+  }
   dbl_ptr = generic_pointer;
   for (i=0; (i<cols)&&(dbl_ptr[i]!=0.0); i++);
   elements = i;

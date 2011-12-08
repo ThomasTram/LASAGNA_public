@@ -17,7 +17,7 @@ int main(int argc, char **argv){
   double sinsq_expl = -6.5, sinsq_expr = -5.5, sinsq_exp;
   double deltam2_expl = 0.5, deltam2_expr = 1.5, deltam2_exp;
   double deltam2, sinsq2theta;
-  int i,j,deltares=4,sinsqres=4;
+  int i,j,deltares=36,sinsqres=36;
   FILE *parameter_file;
   FILE *aux_file;
   //delta_m2 = 1e-17
@@ -39,7 +39,7 @@ int main(int argc, char **argv){
     "evolver = 0\n"
     "rtol = 1e-2\n"
     "abstol = 1e-5\n"
-    "vres = 200\n"
+    "vres = 500\n"
     "alpha = 0.2\n"
     "xext = 3.1\n"
     "xmin = 1e-4\n"
@@ -68,7 +68,7 @@ int main(int argc, char **argv){
   getcwd(wrkdir,sizeof(wrkdir));
   sprintf(line_dispatch,"dispatch -s %s/master.sh ",wrkdir);
   printf("%s\n", wrkdir);
-  for (i=0; i<deltares; i++){
+  for (i=9; i<deltares; i++){
     deltam2_exp = deltam2_expl + i*(deltam2_expr-deltam2_expl)/(deltares-1.0);
     deltam2 = -pow(10,deltam2_exp)*1e-18;
     sprintf(line_deltam2,"delta_m2 = %.14e\n",deltam2);

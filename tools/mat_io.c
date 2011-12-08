@@ -283,7 +283,9 @@ int mat_read_data(char *filename,
   int entries;
   //Open file for reading:
   mat_file = fopen(filename,"rb");
-  
+  if (mat_file == NULL){
+    return _FAILURE_;
+  }
   //If matrix name exists in file, get the beginning of the matrix data element:
   func_return = mat_goto_matrix(mat_file,
 				matrix_name,
