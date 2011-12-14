@@ -4,10 +4,15 @@ clear;clc;
 close all;
 %filename = 'output/sim_alpha_1.mat'
 %momentum bin of special interest: in [1; vres]
-mbin = 1;
+mbin = 2;
 filename = 'output/dump.mat';
+%filename = 'd:\Shared\chaos_dat\dump_15_31.mat';
+%filename ='d:\Shared\chaos_dat\loop_line\dump_0_8.mat';
+%filename = 'd:\Shared\lasagna_svn\output\testcase.mat'
+%filename = 'd:\Shared\lasagna_svn\output\dump_L_nh.mat'
+
 load(filename)
-%S = load(filename);
+S = load(filename);
 %Use T in MeV:
 T = T*1000;
 %Construct linear combinations of (more) physical quantities:
@@ -24,7 +29,7 @@ Px = 0.5*(Px_plus+Px_minus);
 Px_bar = 0.5*(Px_plus-Px_minus);
 Py = 0.5*(Py_plus+Py_minus);
 Py_bar = 0.5*(Py_plus-Py_minus);
-
+%clear Pa_plus Pa_minus P0_plus P0_minus Pz_plus Pz_minus Pz_plus Pz_minus Py_plus P0_bar Px_plus Px_minus
 %Auxillary stuff:
 if is_electron
     C_alpha = 1.27;

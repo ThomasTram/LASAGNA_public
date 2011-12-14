@@ -38,6 +38,11 @@ int evolver_radau5(
 					 double dy[], 
 					 void *parameters_and_workspace,
 					 ErrorMsg error_message),
+		  int (*stop_function)(double x, 
+				       double y[], 
+				       double dy[], 
+				       void *parameters_and_workspace,
+				       ErrorMsg error_message),
 		  ErrorMsg error_message){
 	
   /* Constants: */
@@ -83,7 +88,7 @@ int evolver_radau5(
 
   double (*error_norm)(double *y, double *err_y, double threshold, int neq);
 
-  int i, j, debug_stop;
+  int i, j;
 
 
   double *W, *dW, *Y0pZ, *rhs, *Fi, *Zlast;
@@ -311,7 +316,7 @@ int evolver_radau5(
 	  Y0pZ[i*neq+j] += y0[j];
 	}
       }
-      debug_stop=1;
+
       theta = 1e-3;
       abshnew = step_fac_newt_failed*absh;
       for (newt_iter = 1; newt_iter<=newt_iter_max; newt_iter++){
@@ -609,13 +614,16 @@ int evolver_radau5(
         stepstat[4] +=1;
       }
     }
-    if (fabs(y0[0]*1e-15)>5e-6){
-      //Stop condition
-      lasagna_call((*output)(t,y0,f0,next,
-			     parameters_and_workspace_for_derivs,
-			     error_message),error_message,error_message);
-      printf("Stop condition met...\n");
-      break;
+    /* Perhaps use stop function: */
+    if (stop_function != NULL){
+      if (stop_function(t,y0,f0,parameters_and_workspace_for_derivs,
+			error_message) == _TRUE_){      //Stop condition
+	lasagna_call((*output)(t,y0,f0,next,
+			       parameters_and_workspace_for_derivs,
+			       error_message),error_message,error_message);
+	printf("Stop condition met...\n");
+	break;
+      }
     }
   }
   printf("\n End of evolver. Next=%d, t=%e and tnew=%e.",next,t,t+h);

@@ -269,10 +269,9 @@ int evolver_rkdp45(
   int stats[3]={0,0,0};
   double rh,maxtmp;
   //Interpolation variables:
-  double i00,i01,i02,i03;
+  double i01,i02,i03;
   double ixx[5][3];
   double ti,ss1,ss2,ss3,ss4,*yinterp,*dyinterp;
-  int maxidx=-1;
   double min_step = 1e-99;
   dy = malloc(sizeof(double)*neq);
   ytemp = malloc(sizeof(double)*neq);
@@ -306,7 +305,7 @@ int evolver_rkdp45(
   ixx[2][0] = 9477.0/3392.0; ixx[2][1] = -729.0/106.0; ixx[2][2] = 25515.0/6784.0;
   ixx[3][0] = -11.0/7.0; ixx[3][1] = 11.0/3.0; ixx[3][2] = -55.0/28.0;
   ixx[4][0] = 1.5; ixx[4][1] = -4.0; ixx[4][2] = 2.5;
-  i00 = 1.0; i01 = -183.0/64.0; i02=37.0/12.0; i03 = -145.0/128.0;
+  i01 = -183.0/64.0; i02=37.0/12.0; i03 = -145.0/128.0;
   /**
      Done setting method parameters.
   */
@@ -384,7 +383,6 @@ int evolver_rkdp45(
     for (k=0,errmax = 0.0; k<neq; k++){
       errtemp = fabs(err[k]/max(threshold,fabs(ynew[k])));
       if (errtemp>errmax){
-	maxidx = k;
 	errmax = errtemp;
       }
     }

@@ -11,27 +11,27 @@ int init_qke_param(qke_param *pqke){
   Nres = pqke->Nres;
   vres = pqke->vres;
   Tres = pqke->Tres;
-  pqke->Tvec = malloc(sizeof(double)*pqke->Tres);
-  pqke->xi = malloc(sizeof(double)*pqke->Nres);
-  pqke->ui = malloc(sizeof(double)*pqke->Nres);
-  pqke->vi = malloc(sizeof(double)*pqke->Nres);
-  pqke->duidT = malloc(sizeof(double)*pqke->Nres);
-  pqke->dvidT = malloc(sizeof(double)*(pqke->Nres));
-  pqke->duidx = malloc(sizeof(double)*pqke->Nres);
-  pqke->dxidT = malloc(sizeof(double)*pqke->Nres);
-  pqke->a = malloc(sizeof(double)*pqke->Nres);
-  pqke->y_0 = malloc(sizeof(double)*(1+pqke->Nres));
-  pqke->maxstep = malloc(sizeof(double)*(1+pqke->Nres));
-  pqke->x_grid = malloc(sizeof(double)*pqke->vres);
-  pqke->u_grid = malloc(sizeof(double)*pqke->vres);
-  pqke->v_grid = malloc(sizeof(double)*pqke->vres);
-  pqke->dvdu_grid = malloc(sizeof(double)*pqke->vres);
-  pqke->dudT_grid = malloc(sizeof(double)*pqke->vres);
-  pqke->mat = malloc(sizeof(double*)*(pqke->Nres+2));
-  for (i=0; i<(pqke->Nres+2); i++) 
-    pqke->mat[i] = malloc(sizeof(double)*(pqke->Nres + 2));
-  pqke->vv = malloc(sizeof(double)*(pqke->Nres + 2));
-  pqke->indx = malloc(sizeof(int)*(pqke->Nres + 2));
+  pqke->Tvec = malloc(sizeof(double)*Tres);
+  pqke->xi = malloc(sizeof(double)*Nres);
+  pqke->ui = malloc(sizeof(double)*Nres);
+  pqke->vi = malloc(sizeof(double)*Nres);
+  pqke->duidT = malloc(sizeof(double)*Nres);
+  pqke->dvidT = malloc(sizeof(double)*Nres);
+  pqke->duidx = malloc(sizeof(double)*Nres);
+  pqke->dxidT = malloc(sizeof(double)*Nres);
+  pqke->a = malloc(sizeof(double)*Nres);
+  pqke->y_0 = malloc(sizeof(double)*(1+Nres));
+  pqke->maxstep = malloc(sizeof(double)*(1+Nres));
+  pqke->x_grid = malloc(sizeof(double)*vres);
+  pqke->u_grid = malloc(sizeof(double)*vres);
+  pqke->v_grid = malloc(sizeof(double)*vres);
+  pqke->dvdu_grid = malloc(sizeof(double)*vres);
+  pqke->dudT_grid = malloc(sizeof(double)*vres);
+  pqke->mat = malloc(sizeof(double*)*(Nres+2));
+  for (i=0; i<(Nres+2); i++) 
+    pqke->mat[i] = malloc(sizeof(double)*(Nres + 2));
+  pqke->vv = malloc(sizeof(double)*(Nres + 2));
+  pqke->indx = malloc(sizeof(int)*(Nres + 2));
 
   //Do some calculations for the u(x) mapping:
   k1 = pqke->xmin/pqke->xext;
@@ -249,14 +249,14 @@ int get_resonances_xi(double T, double L, qke_param *param){
 	// Protect against possible seg fault:
 	for (i=0; i<param->Nres; i++){
 	  if (xi[i]<param->xmin) {
-	    printf("Note: Resonance at T=%g MeV is lower than xmin=%g. (It is %g.)\n",
-		   T*1e3,param->xmin,xi[i]);
+	    /**	    printf("Note: Resonance at T=%g MeV is lower than xmin=%g. (It is %g.)\n",
+		    T*1e3,param->xmin,xi[i]);*/
 	    xi[i] = param->xmin;
 	    dxidT[i] = 0.0;
 	  }
 	  else if(xi[i]>param->xmax){
-	    printf("Note: Resonance at T=%g MeV is higher than xmax=%g. (It is %g.)\n",
-		   T*1e3,param->xmax,xi[i]);
+	    /**	    printf("Note: Resonance at T=%g MeV is higher than xmax=%g. (It is %g.)\n",
+		    T*1e3,param->xmax,xi[i]);*/
 	    xi[i] = param->xmax;
 	    dxidT[i] = 0.0;
 	  }
@@ -298,18 +298,61 @@ int nonlinear_rhs(double *y, double *Fy, void *param){
   return _SUCCESS_;
 }
 
+int nonlinear_rhs_jac(double *y, double **jac, void *param){
+  qke_param *pqke=param;
+  double b=y[0];
+  double *vi=y+1;
+  double alpha = pqke->alpha;
+  int i,j,n=pqke->Nres;
+  
+  for (i=1; i<=n+1; i++){
+    for (j=1; j<=n+1; j++){
+      jac[i][j] = 0.0;
+    }
+  }
+  jac[1][1]=-pow(vi[0],3); jac[1][2] = -alpha-3.0*b*vi[0]*vi[0];
+  jac[2][1]=pow(1.0-vi[n-1],3);jac[2][n+1]=-alpha-3.0*b*pow(1.0-vi[n-1],2);
+  for (i=0; i<n-1; i++){
+    jac[i+3][1] = 0.25*pow(vi[i+1]-vi[i],3);
+    jac[i+3][i+2] = -alpha-0.75*b*pow(vi[i+1]-vi[i],2);
+    jac[i+3][i+3] = -jac[i+3][i+2];
+  }
+  
+  return _SUCCESS_;
+}
+
+int nonlinear_rhs2(double *y, double *Fy, void *param){
+  qke_param *pqke=param;
+  double b=y[0];
+  double *wi=y+1;
+  double sum_wi=0.0;
+  double alpha = pqke->alpha;
+  double *ui=pqke->ui;
+  int i,n=pqke->Nres;
+
+  for (i=0; i<n; i++){
+    sum_wi += wi[i];
+  }
+  
+  Fy[0] = ui[0]-alpha*sum_wi-b*pow(sum_wi,3);
+  for (i=1; i<n; i++){
+    Fy[i] = ui[i-1]-ui[i]-0.25*b*pow(wi[i-1],3)-alpha*wi[i-1];
+  }
+  Fy[n] = ui[n-1]-1.0+alpha*(1.0-wi[n-1])+b*pow(1.0-wi[n-1],3);
+
+  return _SUCCESS_;
+}
+
 int qke_initial_conditions(double Ti, double *y, qke_param *pqke){
   /** Set initial conditions at temperature Ti: */
   int i, evolve_vi;
-  double mu_div_T,x;
   ErrorMsg error_message;
-  double *dy;
+  double x, *dy;
   double Vx,D,Vz,Vz_bar,Px,Py,Px_bar,Py_bar;
-  //double sterile_ratio = 0.0;
-  //Calculate chemical potential from initial L:
+  /** Calculate chemical potential from initial L:
   mu_div_T = -2*_PI_/sqrt(3.0)*
       sinh(1.0/3.0*asinh(-18.0*sqrt(3.0)*_ZETA3_*pqke->L_initial/pow(_PI_,3)));
-  pqke->mu_div_T_initial = mu_div_T;
+  */
 
   //Assuming y is calloc'ed -- dangerous, better to zero it.
   for (i=0; i<pqke->neq; i++) y[i] = 0.0;
@@ -496,6 +539,20 @@ int qke_store_output(double T,
 };
 
 
+int qke_stop_at_L(double t,
+		  double *y,
+		  double *dy,
+		  void *param,
+		  ErrorMsg error_message){
+  qke_param *pqke=param;
+  if (fabs(y[pqke->index_L]*_L_SCALE_) >= pqke->L_final){
+    return _TRUE_;
+  }
+  else{
+    return _FALSE_;
+  }
+};
+
 int qke_print_variables(double t,
 			double *y,
 			double *dy,
@@ -536,9 +593,9 @@ int qke_derivs(double T,
   double Gamma, D, V0, V1, Pa_plus, Pa_minus, Ps_plus, Ps_minus;
   double Px_plus, Px_minus, Py_plus, Py_minus, f0, f0p1,  mu_div_T;
   double Py_minusp1,Pa_plusp1,PsPs,PsPsp1,I_rho_ss;
-  double feq_plus, feq_minus, feq_ini, I_VxPy_minus, I_f0Pa_plus;
+  double feq_plus, feq_minus, I_VxPy_minus, I_f0Pa_plus;
   double dudTdvdu, delta_v;
-  double rs, mu_div_T_ini;
+  double rs;
   double gamma_j, beta_j;
   int idx,idx_step_l,idx_step_r;
 
@@ -559,14 +616,36 @@ int qke_derivs(double T,
   */
   if (pqke->evolve_vi == _FALSE_){
     //Establish guess and set maximum steps for Newton method:
-    y_0[0] = 1.0 - alpha;
-    maxstep[0] = 100.0;
-    for (i=1; i<=pqke->Nres; i++){
-      y_0[i] = ui[i-1];
-      maxstep[i] = 0.1;
+    if (T==pqke->T_initial){
+      y_0[0] = 1.0 - alpha;
+      maxstep[0] = 100.0;
+      for (i=1; i<=pqke->Nres; i++){
+	y_0[i] = ui[i-1];
+	maxstep[i] = 0.1;
+      }
+    }
+    else{
+      //We can make a more realistic guess:
+      y_0[0] = pqke->b;
+      maxstep[0] = 100.0;
+      for (i=1; i<=pqke->Nres; i++){
+	y_0[i] = vi[i-1];
+	maxstep[i] = 0.1;
+      }
     }
     //Find parametrisation parameters vi, a and b using Newton:
-    lasagna_call(Newton(nonlinear_rhs,y_0,pqke,maxstep,tol_newton,&niter,100,pqke->Nres+1,error_message),error_message,error_message);
+    lasagna_call(Newton(nonlinear_rhs,
+			nonlinear_rhs_jac,
+			y_0,
+			pqke,
+			maxstep,
+			tol_newton,
+			&niter,
+			100,
+			pqke->Nres+1,
+			error_message),
+		 error_message,error_message);
+    
     pqke->b = y_0[0];
     for (i=0; i<pqke->Nres; i++)
       vi[i] = y_0[i+1];
@@ -724,12 +803,10 @@ int qke_derivs(double T,
       sinh(1.0/3.0*asinh(-18.0*sqrt(3.0)*_ZETA3_*L/pow(_PI_,3)));
     //Regulator for sterile population:
     rs = pqke->rs;
-    mu_div_T_ini = pqke->mu_div_T_initial;
     //Distributions:
     feq_plus = 1.0/(1.0+exp(x-mu_div_T))+1.0/(1.0+exp(x+mu_div_T));
     feq_minus = 1.0/(1.0+exp(x-mu_div_T))-1.0/(1.0+exp(x+mu_div_T));
     f0 = 1.0/(1.0+exp(x));
-    feq_ini = 1.0/(1.0+exp(x-mu_div_T_ini));
 
     dudTdvdu = dudT_grid[i]*dvdu_grid[i];
     //Define index steps for calculating derivatives:

@@ -110,6 +110,7 @@ extern "C" {
   int get_resonances_xi(double T, double L, qke_param *param);
   int x_of_u(double u, double *x, qke_param *param);
   int nonlinear_rhs(double *y, double *Fy, void *param);
+  int nonlinear_rhs2(double *y, double *Fy, void *param);
   int qke_initial_conditions(double Ti, double *y, qke_param *pqke);
   int qke_init_output(qke_param *pqke);
   int qke_store_output(double t,
@@ -128,7 +129,11 @@ extern "C" {
 		 double *dy, 
 		 void *pqke, 
 		 ErrorMsg error_message);
-
+  int qke_stop_at_L(double t,
+		    double *y,
+		    double *dy,
+		    void *param,
+		    ErrorMsg error_message);
   
 
 

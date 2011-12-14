@@ -2,13 +2,15 @@ clear; clc;
 close all
 %dirname = 'd:\Shared\lasagna_radau\output\run1\';
 %dirname = 'd:\Shared\lasagna_radau\output\';
-dirname = 'd:\Shared\lasagna_new\output\';
+%dirname = 'd:\Shared\lasagna_new\output\';
+dirname = 'd:\Shared\lasagna_svn\';
+
 S = dir([dirname,'*.mat']);
 for i=1:length(S)
     disp([num2str(i),': ',S(i).name])
 end
-mask = [1,5,6,7,9,10];
-S = S(mask);
+%mask = [1,5,6,7,9,10];
+%S = S(mask);
 for i=1:length(S)
     disp([num2str(i),': ',S(i).name])
 end

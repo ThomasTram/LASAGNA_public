@@ -4,9 +4,7 @@ int input_init_from_arguments(int argc,
 			      qke_param *pqke,
 			      ErrorMsg errmsg){
   struct file_content fc;
-  char input_file[_ARGUMENT_LENGTH_MAX_];
   fc.size = 0;
-  input_file[0]='\0';
 
   lasagna_test(argc>2, 
 	       errmsg,

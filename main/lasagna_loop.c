@@ -112,6 +112,7 @@ int main() {
 				qke_struct.Ai,
 				qke_store_output,
 				NULL,
+				qke_stop_at_L,
 				error_message);
     if (func_return == _FAILURE_)
       printf("Failure at j=%d, message: %s.\n",j,error_message);

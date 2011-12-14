@@ -11,6 +11,7 @@
 extern "C" {
 #endif
 int Newton(int (*vecfun)(double * y, double * Fy, void *param),
+	   int (*jacfun)(double * y, double **jac, void *param),
 	   double *y0,
 	   void *param,
 	   double *maxstep,

@@ -73,10 +73,22 @@ int evolver_ndf15(
 		  int tres,
 		  int *Ap,
 		  int *Ai,
-		  int (*output)(double x,double y[],double dy[],int index_x,void * parameters_and_workspace,
+		  int (*output)(double x,
+				double y[],
+				double dy[],
+				int index_x,
+				void * parameters_and_workspace,
 				ErrorMsg error_message),
-		  int (*print_variables)(double x, double y[], double dy[], void *parameters_and_workspace,
+		  int (*print_variables)(double x, 
+					 double y[], 
+					 double dy[], 
+					 void *parameters_and_workspace,
 					 ErrorMsg error_message),
+		  int (*stop_function)(double x, 
+				       double y[], 
+				       double dy[], 
+				       void *parameters_and_workspace,
+				       ErrorMsg error_message),
 		  ErrorMsg error_message){
 	
   /* Constants: */
@@ -517,8 +529,8 @@ int evolver_ndf15(
       }
       //printf("Max Err index: %d\n",maxerr);
       err = err * erconst[k-1];
-      /**printf("%e %d %e %e .. v = [%g, %g]\n",
-	 t,maxerr,err,absh,ynew[neq-1],ynew[neq]);*/
+      printf("%e %d %e %e .. v = [%g, %g]\n",
+	 t,maxerr,err,absh,ynew[neq-1],ynew[neq]);
       if (err>rtol){
 	/*Step failed */
 	stepstat[1]+= 1;
@@ -692,13 +704,17 @@ int evolver_ndf15(
     t = tnew;
     eqvec(ynew,y,neq);
     Jcurrent = _FALSE_;
-    if (fabs(y[1]*1e-15)>5e-6){
-      //Stop condition
-      lasagna_call((*output)(t,y+1,f0+1,next,
-			     parameters_and_workspace_for_derivs,
-			     error_message),error_message,error_message);
-      printf("Stop condition met...\n");
-      break;
+
+    /* Perhaps use stop function: */
+    if (stop_function != NULL){
+      if (stop_function(t,y+1,f0+1,parameters_and_workspace_for_derivs,
+			error_message) == _TRUE_){      //Stop condition
+	lasagna_call((*output)(t,y+1,f0+1,next,
+			       parameters_and_workspace_for_derivs,
+			       error_message),error_message,error_message);
+	printf("Stop condition met...\n");
+	break;
+      }
     }
   }
 

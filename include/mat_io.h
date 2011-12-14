@@ -18,7 +18,7 @@
 #define miDOUBLE 9
 #define miMATRIX 14
 
-/** Macros for updating output file: */
+/** Macro for updating output file: */
 #define mat_write_fast(ptr,handle,size_element,entries)       		\
   do {									\
     fseek(mat_file,handle,SEEK_SET);					\
@@ -26,7 +26,24 @@
     handle += size_element*entries;					\
   } while(0);
 
-
+/** Macro for reading */
+#define lasagna_fread(destination_ptr,					\
+		      size,						\
+		      count,						\
+		      stream)						\
+  do {									\
+    read_status = fread(destination_ptr, size, count, stream);		\
+    if (read_status != count) {						\
+      if (feof(mat_file)==1)						\
+	printf("Error: %s(L:%d). Read failed, End-of-File reached.\n",	\
+	       __func__,__LINE__);					\
+      else								\
+	printf("Error: %s(L:%d). Read failed, unknown reason.\n",	\
+	       __func__,__LINE__);					\
+      return _FAILURE_;							\
+    }									\
+  } while(0);								\
+  
 /**
  * Boilerplate for C++
  */
