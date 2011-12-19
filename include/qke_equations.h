@@ -111,6 +111,7 @@ extern "C" {
   int x_of_u(double u, double *x, qke_param *param);
   int nonlinear_rhs(double *y, double *Fy, void *param);
   int nonlinear_rhs2(double *y, double *Fy, void *param);
+  double drhodv(double *rho, double delta_v, int index, int stencil_method);
   int qke_initial_conditions(double Ti, double *y, qke_param *pqke);
   int qke_init_output(qke_param *pqke);
   int qke_store_output(double t,

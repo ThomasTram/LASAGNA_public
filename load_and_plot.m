@@ -4,12 +4,13 @@ clear;clc;
 close all;
 %filename = 'output/sim_alpha_1.mat'
 %momentum bin of special interest: in [1; vres]
-mbin = 2;
-filename = 'output/dump.mat';
+mbin = 1;
+analytic_static = true;
+%filename = 'output/dump.mat';
 %filename = 'd:\Shared\chaos_dat\dump_15_31.mat';
 %filename ='d:\Shared\chaos_dat\loop_line\dump_0_8.mat';
 %filename = 'd:\Shared\lasagna_svn\output\testcase.mat'
-%filename = 'd:\Shared\lasagna_svn\output\dump_L_nh.mat'
+filename = 'd:\Shared\lasagna_svn\output\dump_L_nh.mat'
 
 load(filename)
 S = load(filename);
@@ -37,6 +38,7 @@ else
     C_alpha = 0.92;
 end
 mask = ones(1,Tres_vres(2));
+
 Vx_grid = Vx(mask,:)./x_grid;
 V0_grid = V0(mask,:)./x_grid;
 V1_grid = V1(mask,:).*x_grid;
@@ -47,10 +49,17 @@ Gamma_grid = C_alpha*(1.16637e-5)^2*x_grid.*(1e-3*T(mask,:)).^5;
 D_grid = 0.5*Gamma_grid;
 
 %Static approximation:
-Px_static_grid = Pz.*Vx_grid.*Vz_grid./(D_grid.^2+Vz_grid.^2);
-Px_bar_static_grid = Pz_bar.*Vx_grid.*Vz_bar_grid./(D_grid.^2+Vz_bar_grid.^2);
-Py_static_grid = Pz.*(-Vx_grid.*D_grid)./(D_grid.^2+Vz_grid.^2);
-Py_bar_static_grid = Pz_bar.*(-Vx_grid.*D_grid)./(D_grid.^2+Vz_bar_grid.^2);
+if (analytic_static)
+    Px_static_grid = Pz.*Vx_grid.*Vz_grid./(D_grid.^2+Vz_grid.^2);
+    Px_bar_static_grid = Pz_bar.*Vx_grid.*Vz_bar_grid./(D_grid.^2+Vz_bar_grid.^2);
+    Py_static_grid = Pz.*(-Vx_grid.*D_grid)./(D_grid.^2+Vz_grid.^2);
+    Py_bar_static_grid = Pz_bar.*(-Vx_grid.*D_grid)./(D_grid.^2+Vz_bar_grid.^2);
+else
+    Px_static_grid = Vx_grid.*Vz_grid./(D_grid.^2+Vz_grid.^2);
+    Px_bar_static_grid = Vx_grid.*Vz_bar_grid./(D_grid.^2+Vz_bar_grid.^2);
+    Py_static_grid = (-Vx_grid.*D_grid)./(D_grid.^2+Vz_grid.^2);
+    Py_bar_static_grid = (-Vx_grid.*D_grid)./(D_grid.^2+Vz_bar_grid.^2);
+end
 Py_static_plus = Py_static_grid + Py_bar_static_grid;
 Py_static_minus = Py_static_grid - Py_bar_static_grid;
 Px_static_plus = Px_static_grid + Px_bar_static_grid;
@@ -60,6 +69,7 @@ Px_static_minus = Px_static_grid - Px_bar_static_grid;
 %Plot stuff
 scrsz = get(0,'ScreenSize');
 last_idx = length(T)-sum(T==0);
+last_idx = 1000;
 
 %Debug stuff:
 Py_static_mean = mean(Py_static_grid(:,1:last_idx),2);
@@ -201,7 +211,6 @@ hold on;plot(T(1:last_idx),Px_static_grid(mbin,1:last_idx),'-r','LineWidth',2); 
 nice_plot(subplot_rows,subplot_cols,6,T,Py(mbin,:),last_idx,...
     'Title','Py');
 hold on;plot(T(1:last_idx),Py_static_grid(mbin,1:last_idx),'-r','LineWidth',2); hold off;
-
 function nice_plot(rows, cols, number, x, y, lastidx, varargin)
 subplot(rows, cols, number)
 plot(x(1:lastidx),y(:,1:lastidx))

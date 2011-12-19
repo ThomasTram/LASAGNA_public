@@ -248,9 +248,9 @@ int get_resonances_xi(double T, double L, qke_param *param){
 
 	// Protect against possible seg fault:
 	for (i=0; i<param->Nres; i++){
-	  if (xi[i]<param->xmin) {
-	    /**	    printf("Note: Resonance at T=%g MeV is lower than xmin=%g. (It is %g.)\n",
-		    T*1e3,param->xmin,xi[i]);*/
+	  if ((1==0)&&(xi[i]<param->xmin)) {
+	    /**printf("Note: Resonance at T=%g MeV is lower than xmin=%g. (It is %g.)\n",
+	       T*1e3,param->xmin,xi[i]);*/
 	    xi[i] = param->xmin;
 	    dxidT[i] = 0.0;
 	  }
@@ -588,16 +588,15 @@ int qke_derivs(double T,
   double gentr,H;
   double lu_sgn;
   double daidT,dbdT;
-  double Vx, Vxp1, VL;
-  double x,xp1;
+  double Vx, VL;
+  double x, w_trapz;
   double Gamma, D, V0, V1, Pa_plus, Pa_minus, Ps_plus, Ps_minus;
-  double Px_plus, Px_minus, Py_plus, Py_minus, f0, f0p1,  mu_div_T;
-  double Py_minusp1,Pa_plusp1,PsPs,PsPsp1,I_rho_ss;
-  double feq_plus, feq_minus, I_VxPy_minus, I_f0Pa_plus;
+  double Px_plus, Px_minus, Py_plus, Py_minus, f0,  mu_div_T;
+  double PsPs,I_rho_ss, feq_plus, feq_minus, I_VxPy_minus, I_f0Pa_plus;
   double dudTdvdu, delta_v;
   double rs;
   double gamma_j, beta_j;
-  int idx,idx_step_l,idx_step_r;
+  int idx, stencil_method;
 
   alpha = pqke->alpha;
   L = y[pqke->index_L]*_L_SCALE_;
@@ -742,22 +741,22 @@ int qke_derivs(double T,
   I_f0Pa_plus = 0.0;
   I_rho_ss = 0.0;
   for (i=0; i<pqke->vres-1; i++){
+    if (i==0)
+      w_trapz = 0.5*(pqke->x_grid[i+1]-pqke->x_grid[i]);
+    else if (i==pqke->vres-1)
+      w_trapz = 0.5*(pqke->x_grid[i]-pqke->x_grid[i-1]);
+    else
+      w_trapz = 0.5*(pqke->x_grid[i+1]-pqke->x_grid[i-1]);
     x = pqke->x_grid[i];
-    xp1 = pqke->x_grid[i+1];
     f0 = 1.0/(1.0+exp(x));
-    f0p1 = 1.0/(1.0+exp(xp1));
     Vx = pqke->Vx/x;
-    Vxp1 = pqke->Vx/xp1;
     Py_minus = y[pqke->index_Py_minus+i];
-    Py_minusp1 = y[pqke->index_Py_minus+i+1];
     Pa_plus = y[pqke->index_Pa_plus+i];
-    Pa_plusp1 = y[pqke->index_Pa_plus+i+1];
     PsPs = y[pqke->index_Ps_plus+i]+y[pqke->index_Ps_minus+i];
-    PsPsp1 = y[pqke->index_Ps_plus+i+1]+y[pqke->index_Ps_minus+i+1];
     
-    I_VxPy_minus += 0.5*(xp1-x)*(x*x*Vx*Py_minus*f0+xp1*xp1*Vxp1*Py_minusp1*f0p1);
-    I_f0Pa_plus += 0.5*(xp1-x)*(x*x*f0*Pa_plus+xp1*xp1*f0p1*Pa_plusp1);
-    I_rho_ss += 0.5*(xp1-x)*(x*x*f0*PsPs+xp1*xp1*f0p1*PsPsp1);
+    I_VxPy_minus += w_trapz*(x*x*Vx*Py_minus*f0);
+    I_f0Pa_plus += w_trapz*(x*x*f0*Pa_plus);
+    I_rho_ss += w_trapz*(x*x*f0*PsPs);
   }
   //Set V1:
   if (pqke->is_electron == _TRUE_){
@@ -781,6 +780,7 @@ int qke_derivs(double T,
     }
   }
 
+  delta_v = v_grid[1]-v_grid[0];
   for (i=0; i<pqke->vres; i++){
     x = pqke->x_grid[i];
     Vx = pqke->Vx/x;
@@ -811,50 +811,63 @@ int qke_derivs(double T,
     dudTdvdu = dudT_grid[i]*dvdu_grid[i];
     //Define index steps for calculating derivatives:
     if (i==0)
-      idx_step_l = 0;
+      stencil_method = 12; //First order, forward
+    else if (i==pqke->vres-1)
+      stencil_method = 10; //First order, backwards
+    else if ((i==pqke->vres-2)||(i==1))
+      stencil_method = 21; //Second order, centered
     else
-      idx_step_l = -1;
-    if (i==pqke->vres-1)
-      idx_step_r = 0;
-    else
-      idx_step_r = 1;
-    delta_v = v_grid[i+idx_step_r]-v_grid[i+idx_step_l];
+      stencil_method = 51; //Fifth order, centered
+    
 
     idx = pqke->index_Pa_plus+i;
     dy[idx] = -1.0/(H*T)*(Vx*Py_plus+Gamma*(2.0*feq_plus/f0-Pa_plus))+
-      dudTdvdu*(y[idx+idx_step_r]-y[idx+idx_step_l])/delta_v;
+      dudTdvdu*drhodv(y, delta_v, idx, stencil_method);
 
     idx = pqke->index_Pa_minus+i;
     dy[idx] = -1.0/(H*T)*(Vx*Py_minus+Gamma*(2.0*feq_minus/f0-Pa_minus))+
-      dudTdvdu*(y[idx+idx_step_r]-y[idx+idx_step_l])/delta_v;
+      dudTdvdu*drhodv(y, delta_v, idx, stencil_method);
 
     idx = pqke->index_Ps_plus+i;
     dy[idx] = 1.0/(H*T)*
-      (Vx*Py_plus-rs*Gamma*(1.0/(6.0*_ZETA3_)*I_rho_ss*feq_plus-0.5*f0*Ps_plus))+
-      dudTdvdu*(y[idx+idx_step_r]-y[idx+idx_step_l])/delta_v;
+      (Vx*Py_plus-rs*Gamma*(1.0/(6.0*_ZETA3_)*I_rho_ss*feq_plus-0.5*f0*Ps_plus))+     dudTdvdu*drhodv(y, delta_v, idx, stencil_method);
     
     idx = pqke->index_Ps_minus+i;
     dy[idx] = 1.0/(H*T)*
       (Vx*Py_minus-rs*Gamma*f0*(1.0-0.5*(Pa_minus+Ps_minus)))+
-       dudTdvdu*(y[idx+idx_step_r]-y[idx+idx_step_l])/delta_v;
+      dudTdvdu*drhodv(y, delta_v, idx, stencil_method);
     
     idx = pqke->index_Px_plus+i;
     dy[idx] = 1.0/(H*T)*((V0+V1)*Py_plus+VL*Py_minus+D*Px_plus)+
-       dudTdvdu*(y[idx+idx_step_r]-y[idx+idx_step_l])/delta_v;
+      dudTdvdu*drhodv(y, delta_v, idx, stencil_method);
 
     idx = pqke->index_Px_minus+i;
     dy[idx] = 1.0/(H*T)*((V0+V1)*Py_minus+VL*Py_plus+D*Px_minus)+
-       dudTdvdu*(y[idx+idx_step_r]-y[idx+idx_step_l])/delta_v;
+      dudTdvdu*drhodv(y, delta_v, idx, stencil_method);
 
     idx = pqke->index_Py_plus+i;
     dy[idx] = 1.0/(H*T)*
       (-(V0+V1)*Px_plus-VL*Px_minus+0.5*Vx*(Pa_plus-Ps_plus)+D*Py_plus)+ 
-      dudTdvdu*(y[idx+idx_step_r]-y[idx+idx_step_l])/delta_v;
+      dudTdvdu*drhodv(y, delta_v, idx, stencil_method);
    
     idx = pqke->index_Py_minus+i;
     dy[idx] = 1.0/(H*T)*
       (-(V0+V1)*Px_minus-VL*Px_plus+0.5*Vx*(Pa_minus-Ps_minus)+D*Py_minus)+
-       dudTdvdu*(y[idx+idx_step_r]-y[idx+idx_step_l])/delta_v;
+      dudTdvdu*drhodv(y, delta_v, idx, stencil_method);
   }
   return _SUCCESS_;
+}
+
+double drhodv(double *rho, double delta_v, int index, int stencil_method){
+  double drho;
+  if (stencil_method == 12)
+    drho = (rho[index+1]-rho[index])/delta_v;
+  else if (stencil_method == 10)
+    drho = (rho[index]-rho[index-1])/delta_v;
+  else if (stencil_method == 21)
+    drho = (rho[index+1]-rho[index-1])/(2.0*delta_v);
+  else
+    drho = (-rho[index+2]+8.0*rho[index+1]
+	    -8.0*rho[index-1]+rho[index-2])/(12*delta_v);
+  return drho;
 }
