@@ -69,7 +69,6 @@ Px_static_minus = Px_static_grid - Px_bar_static_grid;
 %Plot stuff
 scrsz = get(0,'ScreenSize');
 last_idx = length(T)-sum(T==0);
-last_idx = 1000;
 
 %Debug stuff:
 Py_static_mean = mean(Py_static_grid(:,1:last_idx),2);

@@ -291,6 +291,7 @@ int evolver_ndf15(
   if (absh * rh > 1.0) absh = 1.0 / rh;
   
   absh = max(absh, hmin);
+
   h = tdir * absh;
   /* Done calculating initial step
      Get ready to do the loop:*/
@@ -530,7 +531,7 @@ int evolver_ndf15(
       //printf("Max Err index: %d\n",maxerr);
       err = err * erconst[k-1];
       printf("%e %d %e %e .. v = [%g, %g]\n",
-	 t,maxerr,err,absh,ynew[neq-1],ynew[neq]);
+	 t,maxerr,err,absh,ynew[maxerr+1],ynew[0]);
       if (err>rtol){
 	/*Step failed */
 	stepstat[1]+= 1;

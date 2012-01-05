@@ -414,6 +414,84 @@ int qke_initial_conditions(double Ti, double *y, qke_param *pqke){
   return _SUCCESS_;
 };
 
+int qke_initial_conditions_fixed_grid(double Ti, double *y, qke_param *pqke){
+  /** Set initial conditions at temperature Ti: */
+  int i, evolve_vi;
+  ErrorMsg error_message;
+  double x, *dy;
+  double Vx,D,Vz,Vz_bar,Px,Py,Px_bar,Py_bar;
+  /** Calculate chemical potential from initial L:
+  mu_div_T = -2*_PI_/sqrt(3.0)*
+      sinh(1.0/3.0*asinh(-18.0*sqrt(3.0)*_ZETA3_*pqke->L_initial/pow(_PI_,3)));
+  */
+
+  //Assuming y is calloc'ed -- dangerous, better to zero it.
+  for (i=0; i<pqke->neq; i++) y[i] = 0.0;
+
+  //Set standard equilibrium initial conditions:
+  y[pqke->index_L] = pqke->L_initial/_L_SCALE_;
+  for (i=0; i<pqke->vres; i++)
+    y[pqke->index_Pa_plus+i] = 4.0;
+  
+  //Do one call to qke_derivs to get the coordinate transformation.
+  evolve_vi = pqke->evolve_vi;
+  //We must always solve the non-linear equation in the first step:
+  pqke->evolve_vi = _FALSE_;
+  dy = malloc(sizeof(double)*pqke->neq);
+  qke_derivs(Ti,y,dy,pqke,error_message);
+
+  //Debug stuff:
+  /**  for (i=0; i<40; i++){
+    pqke->x_grid[i] = max(1e-10,pqke->xi[0]+(-20+i)*0.2*pqke->xi[0]*pqke->theta_zero);
+  }
+  */
+  pqke->evolve_vi = evolve_vi;
+  if (pqke->evolve_vi == _TRUE_){
+    //We must set initial conditions for these:
+    //y[pqke->index_b] = pqke->b;
+    for (i=0; i<pqke->Nres; i++)
+      y[pqke->index_vi+i] = pqke->vi[i];
+  }
+  for (i=0; i<pqke->vres; i++){
+    x = pqke->x_grid[i];
+    Vx = pqke->Vx/x;
+    Vz = pqke->V0/x + pqke->V1*x + pqke->VL;
+    Vz_bar = pqke->V0/x + pqke->V1*x - pqke->VL;
+    D = 0.5*pqke->C_alpha*_G_F_*_G_F_*x*pow(Ti,5);
+
+    Px = Vx*Vz/(D*D+Vz*Vz);
+    Px_bar = Vx*Vz_bar/(D*D+Vz_bar*Vz_bar);
+    Py = -Vx*D/(D*D+Vz*Vz);
+    Py_bar = -Vx*D/(D*D+Vz_bar*Vz_bar);
+
+    //continue;
+    y[pqke->index_Px_plus+i] =  Px + Px_bar;
+    y[pqke->index_Px_minus+i] = Px - Px_bar;
+    y[pqke->index_Py_plus+i] = Py + Py_bar;
+    y[pqke->index_Py_minus+i] = Py - Py_bar;
+ 
+  }
+    /**
+       Old code for setting initial condition for non-zero L_nu:
+       if(_FALSE_){ //(mu_div_T < 0.05){
+       Use series expansion in mu_div_T to set initial values:
+       y[pqke->index_Pa_plus+i] = 4.0+
+       2.0*exp(x)*(exp(x)-1.0)/pow(exp(x)+1.0,2)*pow(mu_div_T,2);
+       printf("Pa_plus initial: %e\n",y[pqke->index_Pa_plus+i]);
+       y[pqke->index_Pa_minus+i] = 4.0*exp(x)/(exp(x)+1.0)*mu_div_T;
+       }
+       else{
+       y[pqke->index_Pa_plus+i] = 2.0*(1.0+exp(x))*
+       (1.0/(1.0+exp(x-mu_div_T))+1.0/(1.0+exp(x+mu_div_T)));
+       y[pqke->index_Pa_minus+i] = 2.0*(1.0+exp(x))*
+       (1.0/(1.0+exp(x-mu_div_T))-1.0/(1.0+exp(x+mu_div_T)));
+       }
+    */
+  free(dy);
+  return _SUCCESS_;
+};
+
+
 int qke_init_output(qke_param *pqke){
   int Tres=pqke->Tres;
   int vres=pqke->vres;
@@ -702,15 +780,18 @@ int qke_derivs(double T,
 
   /** Calculate x and u on the v-grid along with derivatives dvdu and dudT:*/
   dbdT = (duidT[0]+(2.0*alpha-3.0*u1/v1)*dvidT[0])/pow(v1,3);
-  for (i=1; i<pqke->Nres; i++){
-    /** Find the splitting of v and store it temporarily in pqke->indx.
-	We use the fact that v is uniform.
-    */
-    wi = 0.5*(vi[i-1]+vi[i]); //Weighted average
-    pqke->indx[i] = (int)(wi/(v_grid[1]-v_grid[0]));
-  }
+  /** Find the splitting of v and store it temporarily in pqke->indx.
+      We use the fact that v is uniform.
+  */
   pqke->indx[0] = 0;
   pqke->indx[pqke->Nres] = pqke->vres;
+  for (i=1; i<pqke->Nres; i++){
+    wi = 0.5*(vi[i-1]+vi[i]); //Weighted average
+    pqke->indx[i] = (int)((wi-pqke->v_left)/(v_grid[1]-v_grid[0]));
+    if (pqke->indx[i]<pqke->indx[i-1])
+      pqke->indx[i] = pqke->indx[i-1];
+  }
+
   // Now loop over resonances:
   for (i=0; i<pqke->Nres; i++){
     if (pqke->indx[i]==pqke->indx[i+1])
@@ -769,7 +850,8 @@ int qke_derivs(double T,
   }
 
   /** Calculate RHS: */
-  dy[pqke->index_L] = -1.0/(8.0*H*T*_ZETA3_)*I_VxPy_minus/_L_SCALE_;
+  dy[pqke->index_L] = 0.0;
+  //dy[pqke->index_L] = -1.0/(8.0*H*T*_ZETA3_)*I_VxPy_minus/_L_SCALE_;
   /** All quantities defined on the grid: */
 
   // Set perhaps flow of grid:
@@ -809,15 +891,16 @@ int qke_derivs(double T,
     f0 = 1.0/(1.0+exp(x));
 
     dudTdvdu = dudT_grid[i]*dvdu_grid[i];
+    
     //Define index steps for calculating derivatives:
     if (i==0)
-      stencil_method = 12; //First order, forward
+      stencil_method = 12; //First order, forward   12
     else if (i==pqke->vres-1)
-      stencil_method = 10; //First order, backwards
+      stencil_method = 10; //First order, backwards 10
     else if ((i==pqke->vres-2)||(i==1))
-      stencil_method = 21; //Second order, centered
+      stencil_method = 21; //Second order, centered 21
     else
-      stencil_method = 51; //Fifth order, centered
+      stencil_method = 21; //Fifth order, centered  51
     
 
     idx = pqke->index_Pa_plus+i;
@@ -854,6 +937,136 @@ int qke_derivs(double T,
     dy[idx] = 1.0/(H*T)*
       (-(V0+V1)*Px_minus-VL*Px_plus+0.5*Vx*(Pa_minus-Ps_minus)+D*Py_minus)+
       dudTdvdu*drhodv(y, delta_v, idx, stencil_method);
+  }
+  return _SUCCESS_;
+}
+
+int qke_derivs_fixed_grid(double T, 
+			  double *y, 
+			  double *dy, 
+			  void *param,
+			  ErrorMsg error_message){
+  qke_param *pqke=param;
+  double L;
+  int i;
+  double *x_grid=pqke->x_grid;
+  double gentr,H;
+  double Vx, VL;
+  double x, w_trapz;
+  double Gamma, D, V0, V1, Pa_plus, Pa_minus, Ps_plus, Ps_minus;
+  double Px_plus, Px_minus, Py_plus, Py_minus, f0,  mu_div_T;
+  double PsPs,I_rho_ss, feq_plus, feq_minus, I_VxPy_minus, I_f0Pa_plus;
+  double rs;
+  int idx;
+
+  L = y[pqke->index_L]*_L_SCALE_;
+  get_resonances_xi(T,L,pqke);
+
+  //Get degrees of freedom from background:
+  background_getdof(T,NULL,&gentr,&(pqke->pbs));
+  /** Use Friedmann equation in radiation dominated universe: 
+      (The radiation approximation breaks down long before there 
+      is a difference in g and gS) */
+  H = sqrt(8.0*pow(_PI_,3)*gentr/90.0)*T*T/_M_PL_;
+
+  /** Calculate 'scalar' potentials Vx, V0, VL
+      (not momentum dependent): */
+  pqke->VL = sqrt(2.0)*_G_F_*2.0*_ZETA3_*pow(T,3)/_PI_/_PI_*L;
+  VL = pqke->VL;
+  pqke->Vx = pqke->delta_m2/(2.0*T)*sin(2.0*pqke->theta_zero);
+  pqke->V0 = -pqke->delta_m2/(2.0*T)*cos(2.0*pqke->theta_zero);
+  
+  /** Integrated quantities needed. We integrate in x space: */
+  I_VxPy_minus = 0.0;
+  I_f0Pa_plus = 0.0;
+  I_rho_ss = 0.0;
+  for (i=0; i<pqke->vres-1; i++){
+    if (i==0)
+      w_trapz = 0.5*(x_grid[i+1]-x_grid[i]);
+    else if (i==pqke->vres-1)
+      w_trapz = 0.5*(x_grid[i]-x_grid[i-1]);
+    else
+      w_trapz = 0.5*(x_grid[i+1]-x_grid[i-1]);
+    x = x_grid[i];
+    f0 = 1.0/(1.0+exp(x));
+    Vx = pqke->Vx/x;
+    Py_minus = y[pqke->index_Py_minus+i];
+    Pa_plus = y[pqke->index_Pa_plus+i];
+    PsPs = y[pqke->index_Ps_plus+i]+y[pqke->index_Ps_minus+i];
+    
+    I_VxPy_minus += w_trapz*(x*x*Vx*Py_minus*f0);
+    I_f0Pa_plus += w_trapz*(x*x*f0*Pa_plus);
+    I_rho_ss += w_trapz*(x*x*f0*PsPs);
+  }
+  //Set V1:
+  if (pqke->is_electron == _TRUE_){
+    pqke->V1 = -14.0*sqrt(2.0)*_PI_*_PI_/45.0*_G_F_/_M_W_/_M_W_*pow(T,5)*
+      (1.0+1.0/(12.0*_ZETA3_)*(1.0-_SIN2_THETA_W_)*I_f0Pa_plus);
+  }
+  else{
+    pqke->V1 = -7.0*_PI_*_PI_/(135.0*sqrt(2.0)*_ZETA3_)*
+      _G_F_/_M_Z_/_M_Z_*pow(T,5)*I_f0Pa_plus;
+  }
+
+  /** Calculate RHS: */
+  dy[pqke->index_L] = -1.0/(8.0*H*T*_ZETA3_)*I_VxPy_minus/_L_SCALE_;
+  /** All quantities defined on the grid: */
+
+  
+  for (i=0; i<pqke->vres; i++){
+    x = x_grid[i];
+    Vx = pqke->Vx/x;
+    V0 = pqke->V0/x;
+    V1 = pqke->V1*x;
+    Gamma = pqke->C_alpha*_G_F_*_G_F_*x*pow(T,5);
+    D = 0.5*Gamma;
+    
+    Pa_plus = y[pqke->index_Pa_plus+i];
+    Pa_minus = y[pqke->index_Pa_minus+i];
+    Ps_plus = y[pqke->index_Ps_plus+i];
+    Ps_minus = y[pqke->index_Ps_minus+i];
+    Px_plus = y[pqke->index_Px_plus+i];
+    Px_minus = y[pqke->index_Px_minus+i];
+    Py_plus = y[pqke->index_Py_plus+i];
+    Py_minus = y[pqke->index_Py_minus+i];
+  
+    //Solving mu from L, using the chebyshev cubic root:
+    mu_div_T = -2*_PI_/sqrt(3.0)*
+      sinh(1.0/3.0*asinh(-18.0*sqrt(3.0)*_ZETA3_*L/pow(_PI_,3)));
+    //Regulator for sterile population:
+    rs = pqke->rs;
+    //Distributions:
+    feq_plus = 1.0/(1.0+exp(x-mu_div_T))+1.0/(1.0+exp(x+mu_div_T));
+    feq_minus = 1.0/(1.0+exp(x-mu_div_T))-1.0/(1.0+exp(x+mu_div_T));
+    f0 = 1.0/(1.0+exp(x));
+    
+    idx = pqke->index_Pa_plus+i;
+    dy[idx] = -1.0/(H*T)*(Vx*Py_plus+Gamma*(2.0*feq_plus/f0-Pa_plus));
+
+    idx = pqke->index_Pa_minus+i;
+    dy[idx] = -1.0/(H*T)*(Vx*Py_minus+Gamma*(2.0*feq_minus/f0-Pa_minus));
+
+    idx = pqke->index_Ps_plus+i;
+    dy[idx] = 1.0/(H*T)*
+      (Vx*Py_plus-rs*Gamma*(1.0/(6.0*_ZETA3_)*I_rho_ss*feq_plus-0.5*f0*Ps_plus));
+    
+    idx = pqke->index_Ps_minus+i;
+    dy[idx] = 1.0/(H*T)*
+      (Vx*Py_minus-rs*Gamma*f0*(1.0-0.5*(Pa_minus+Ps_minus)));
+    
+    idx = pqke->index_Px_plus+i;
+    dy[idx] = 1.0/(H*T)*((V0+V1)*Py_plus+VL*Py_minus+D*Px_plus);
+
+    idx = pqke->index_Px_minus+i;
+    dy[idx] = 1.0/(H*T)*((V0+V1)*Py_minus+VL*Py_plus+D*Px_minus);
+
+    idx = pqke->index_Py_plus+i;
+    dy[idx] = 1.0/(H*T)*
+      (-(V0+V1)*Px_plus-VL*Px_minus+0.5*Vx*(Pa_plus-Ps_plus)+D*Py_plus);
+   
+    idx = pqke->index_Py_minus+i;
+    dy[idx] = 1.0/(H*T)*
+      (-(V0+V1)*Px_minus-VL*Px_plus+0.5*Vx*(Pa_minus-Ps_minus)+D*Py_minus);
   }
   return _SUCCESS_;
 }

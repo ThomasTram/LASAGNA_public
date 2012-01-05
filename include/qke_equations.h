@@ -35,8 +35,8 @@ typedef struct qke_param_structure{
   double *y_0;   //Workspace for qke_derivs, for Newton method.
   double *maxstep;
   int vres;      //Number of momentum bins in v-space. (Resolution)
-  int v_left;    //Boundaries of v, usually just 0 and 1.
-  int v_right;
+  double v_left;    //Boundaries of v, usually just 0 and 1.
+  double v_right;
   double *v_grid;  //v_grid[vres]
   double *u_grid;
   double *x_grid;
@@ -113,6 +113,7 @@ extern "C" {
   int nonlinear_rhs2(double *y, double *Fy, void *param);
   double drhodv(double *rho, double delta_v, int index, int stencil_method);
   int qke_initial_conditions(double Ti, double *y, qke_param *pqke);
+  int qke_initial_conditions_fixed_grid(double Ti, double *y, qke_param *pqke);
   int qke_init_output(qke_param *pqke);
   int qke_store_output(double t,
 		       double *y,
@@ -130,6 +131,11 @@ extern "C" {
 		 double *dy, 
 		 void *pqke, 
 		 ErrorMsg error_message);
+  int qke_derivs_fixed_grid(double T, 
+			    double *y, 
+			    double *dy, 
+			    void *pqke, 
+			    ErrorMsg error_message);
   int qke_stop_at_L(double t,
 		    double *y,
 		    double *dy,
