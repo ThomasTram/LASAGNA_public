@@ -301,7 +301,7 @@ int mat_read_data(char *filename,
   //Goto the beginning of the array:
   fseek(mat_file,8+name_size_padded,SEEK_CUR);
   //Here is the beginning of the array. Read data type and array size:
-  lasagna_fread(&data_type,4,1,mat_file);
+  lasagna_fread(data_type,4,1,mat_file);
   lasagna_fread(&array_size,4,1,mat_file);
   //Determine byte requirements for data-type:
   switch(*data_type){
@@ -321,7 +321,7 @@ int mat_read_data(char *filename,
   entries = (*rows)*(*cols);
   *data_ptr = malloc(type_byte_size*entries);
   //Read data:
-  lasagna_fread(data_ptr,type_byte_size,entries,mat_file);
+  lasagna_fread(*data_ptr,type_byte_size,entries,mat_file);
   fclose(mat_file);
   return _SUCCESS_;
 }

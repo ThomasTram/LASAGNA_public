@@ -30,7 +30,7 @@ int evolver_rk45(
   double threshold = 1e-6/rtol;
   int nofailed;
   double pow_grow=0.5;
-  int verbose=1;
+  int verbose=2;
   int stats[3]={0,0,0};
   double rh,maxtmp,absh,hmax;
 
@@ -234,23 +234,40 @@ int evolver_rk45(
 }
 
 int evolver_rkdp45(
-  int (*derivs)(double x,double * y,double * dy,
-		void * parameters_and_workspace, ErrorMsg error_message),
-    double t_ini,
-    double t_final,
-    double * y_inout, 
-    int * used_in_output,
-    int neq, 
-    void * ppaw,
-    double rtol, 
-    double minimum_variation, 
-    double * t_vec, 
-    int tres,
-    int (*output)(double x,double y[],double dy[],int index_x,void * parameters_and_workspace,
-		  ErrorMsg error_message),
-    int (*print_variables)(double x, double y[], double dy[], void *ppaw,
-			   ErrorMsg error_message),
-  ErrorMsg error_message){
+		   int (*derivs)(double x,
+				 double * y,
+				 double * dy,
+				 void * parameters_and_workspace, 
+				 ErrorMsg error_message),
+		   double t_ini,
+		   double t_final,
+		   double * y_inout, 
+		   int * used_in_output,
+		   int neq, 
+		   void * ppaw,
+		   double rtol, 
+		   double abstol, 
+		   double * t_vec, 
+		   int tres,
+		   int *ignore1,
+		   int *ignore2,
+		   int (*output)(double x,
+				 double y[],
+				 double dy[],
+				 int index_x,
+				 void * parameters_and_workspace,
+				 ErrorMsg error_message),
+		   int (*print_variables)(double x, 
+					  double y[], 
+					  double dy[], 
+					  void *ppaw,
+					  ErrorMsg error_message),
+		   int (*stop_function)(double x, 
+					double y[], 
+					double dy[], 
+					void *parameters_and_workspace,
+					ErrorMsg error_message),
+		   ErrorMsg error_message){
 
   double *dy,*err,*ynew,*ytemp, *ki;
   double h,absh,hmax,errmax,errtemp,hmin,hnew;
@@ -262,7 +279,7 @@ int evolver_rkdp45(
   double bi_diff[s];
   double ai[s][s];
   double bi_vec_y[s],bi_vec_dy[s];
-  double abstol = 1e-35,threshold = abstol/rtol;
+  double threshold = abstol/rtol;
   int nofailed;
   double pow_grow=0.2;
   int verbose=1;
@@ -443,7 +460,16 @@ int evolver_rkdp45(
 	  output(ti,yinterp,dyinterp,idx,ppaw, error_message);
 	}
       }
-       for (k=0; k<neq; k++){
+      /* Perhaps use stop function: */
+      if (stop_function != NULL){
+	if ((stats[0]>5000000)||
+	    stop_function(tnew,ynew,ki+6*neq, ppaw, error_message) == _TRUE_){      
+	  output(tnew,ynew,ki+6*neq,idx,ppaw, error_message);
+	  printf("Stop condition met...\n");
+	  break;
+	}
+      }
+      for (k=0; k<neq; k++){
 	//Update y:
 	y_inout[k] = ynew[k];
 	//Update k0:

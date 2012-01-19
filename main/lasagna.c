@@ -16,6 +16,7 @@ int main(int argc, char **argv) {
 
   extern int evolver_radau5();
   extern int evolver_ndf15(); 	
+  extern int evolver_rkdp45(); 	
   int (*generic_evolver)();  
 
   func_return = input_init_from_arguments(argc, 
@@ -35,6 +36,9 @@ int main(int argc, char **argv) {
 
   if(qke_struct.evolver == 0){
     generic_evolver = evolver_radau5;
+  }
+  else if (qke_struct.evolver == 2){
+    generic_evolver = evolver_rkdp45;
   }
   else{
     generic_evolver = evolver_ndf15;

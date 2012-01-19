@@ -616,8 +616,9 @@ int evolver_radau5(
     }
     /* Perhaps use stop function: */
     if (stop_function != NULL){
-      if (stop_function(t,y0,f0,parameters_and_workspace_for_derivs,
-			error_message) == _TRUE_){      //Stop condition
+      if ((stepstat[0]>50000)||
+	  (stop_function(t,y0,f0,parameters_and_workspace_for_derivs,
+			 error_message) == _TRUE_)){      //Stop condition
 	lasagna_call((*output)(t,y0,f0,next,
 			       parameters_and_workspace_for_derivs,
 			       error_message),error_message,error_message);

@@ -117,7 +117,7 @@ int evolver_ndf15(
 	
   /* Misc: */
   int stepstat[6],nfenj,j,ii,jj, numidx, neqp=neq+1;
-  int verbose=1;
+  int verbose=6;
 
   /** Allocate memory . */
 
@@ -245,12 +245,13 @@ int evolver_ndf15(
 
 
   nfenj=0;
-  lasagna_call(numjac((*derivs),t,y,f0,&jac,&nj_ws,abstol,neq,
+  /**  lasagna_call(numjac((*derivs),t,y,f0,&jac,&nj_ws,abstol,neq,
 		    &nfenj,parameters_and_workspace_for_derivs,error_message),
 	     error_message,error_message);
   stepstat[3] += 1;
   stepstat[2] += nfenj;
-  Jcurrent = _TRUE_; /* True */
+  Jcurrent = _TRUE_; 
+  */
 	
   hmin = 16.0*DBL_EPSILON*fabs(t);
   /*Calculate initial step */
@@ -275,7 +276,8 @@ int evolver_ndf15(
   stepstat[2] += 1;
 
   /*I assume that a full jacobi matrix is always calculated in the beginning...*/
-  for(ii=1;ii<=neq;ii++){
+  /**
+for(ii=1;ii<=neq;ii++){
     ddfddt[ii]=0.0;
     for(jj=1;jj<=neq;jj++){
       ddfddt[ii]+=(jac.dfdy[ii][jj])*f0[jj];
@@ -289,7 +291,7 @@ int evolver_ndf15(
   }
   absh = min(hmax, htspan);
   if (absh * rh > 1.0) absh = 1.0 / rh;
-  
+  */  
   absh = max(absh, hmin);
 
   h = tdir * absh;
@@ -314,6 +316,7 @@ int evolver_ndf15(
       jac.spJ->Ai[ii] = Ai[ii];
     }
     jac.pattern_supplied = _TRUE_;
+    printf("Calling numjac...\n");
     lasagna_call(numjac((*derivs),
 			t,
 			y,
@@ -530,8 +533,9 @@ int evolver_ndf15(
       }
       //printf("Max Err index: %d\n",maxerr);
       err = err * erconst[k-1];
-      printf("%e %d %e %e .. v = [%g, %g]\n",
-	 t,maxerr,err,absh,ynew[maxerr+1],ynew[0]);
+      if (verbose>4)
+	printf("%e %d %e %e .. v = [%g, %g]\n",
+	       t,maxerr,err,absh,ynew[maxerr+1],ynew[0]);
       if (err>rtol){
 	/*Step failed */
 	stepstat[1]+= 1;
@@ -708,8 +712,9 @@ int evolver_ndf15(
 
     /* Perhaps use stop function: */
     if (stop_function != NULL){
-      if (stop_function(t,y+1,f0+1,parameters_and_workspace_for_derivs,
-			error_message) == _TRUE_){      //Stop condition
+      if ((stepstat[0]>500000000)||
+	  (stop_function(t,y+1,f0+1,parameters_and_workspace_for_derivs,
+			   error_message) == _TRUE_)){      //Stop condition
 	lasagna_call((*output)(t,y+1,f0+1,next,
 			       parameters_and_workspace_for_derivs,
 			       error_message),error_message,error_message);
@@ -1177,7 +1182,8 @@ int numjac(
 
   /* Sparse calculation?*/
   if ((jac->pattern_supplied==_TRUE_)||((jac->use_sparse)&&(jac->repeated_pattern >= jac->trust_sparse))){
-    /* printf("\n Sparse calculation..neq=%d, has grouping=%d",neq,jac->has_grouping);*/
+    printf("Sparse calculation..neq=%d, has grouping=%d\n",neq,jac->has_grouping);
+    printf("jac->pattern_supplied = %d\n",jac->pattern_supplied);
     /* Everything done sparse'ly. Do we have a grouping? */
     if (jac->has_grouping==0){
       jac->max_group = column_grouping2(jac->spJ,jac->col_group,jac->col_wi);
@@ -1198,7 +1204,7 @@ int numjac(
     }
   }
   else{
-    /*printf("\n Normal calculation..."); */
+    printf("\n Normal calculation...");
     /*Normal calculation: */
     colmax = neq;
     for(j=1;j<=neq;j++){
@@ -1465,17 +1471,20 @@ int initialize_jacobian(struct jacobian *jac, int neq, ErrorMsg error_message){
   jac->sparse_stuff_initialized=0;
 	
   /*Setup memory for the pointers of the dense method:*/
+  /**
+  lasagna_alloc(jac->dfdy,sizeof(double*)*(neq+1),error_message); 
 
-  lasagna_alloc(jac->dfdy,sizeof(double*)*(neq+1),error_message); /* Allocate vector of pointers to rows of matrix.*/
   lasagna_alloc(jac->dfdy[1],sizeof(double)*(neq*neq+1),error_message);
   jac->dfdy[0] = NULL;
-  for(i=2;i<=neq;i++) jac->dfdy[i] = jac->dfdy[i-1]+neq; /* Set row pointers... */ 
+  for(i=2;i<=neq;i++) jac->dfdy[i] = jac->dfdy[i-1]+neq; 
 	
-  lasagna_alloc(jac->LU,sizeof(double*)*(neq+1),error_message); /* Allocate vector of pointers to rows of matrix.*/
+  lasagna_alloc(jac->LU,sizeof(double*)*(neq+1),error_message); 
+
   lasagna_alloc(jac->LU[1],sizeof(double)*(neq*neq+1),error_message);
   jac->LU[0] = NULL;
-  for(i=2;i<=neq;i++) jac->LU[i] = jac->LU[i-1]+neq; /* Set row pointers... */ 
-	
+  for(i=2;i<=neq;i++) jac->LU[i] = jac->LU[i-1]+neq; 
+
+  */	
   lasagna_alloc(jac->LUw,sizeof(double)*(neq+1),error_message);
   lasagna_alloc(jac->jacvec,sizeof(double)*(neq+1),error_message);
   lasagna_alloc(jac->luidx,sizeof(int)*(neq+1),error_message);
@@ -1505,11 +1514,13 @@ int initialize_jacobian(struct jacobian *jac, int neq, ErrorMsg error_message){
 }
 
 int uninitialize_jacobian(struct jacobian *jac){
+  /**
   free(jac->dfdy[1]);
   free(jac->dfdy);
+  
   free(jac->LU[1]);
   free(jac->LU);
-	
+  */
   free(jac->luidx);
   free(jac->LUw);
   free(jac->jacvec);

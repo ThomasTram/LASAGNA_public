@@ -1,6 +1,7 @@
 #include "extract_matrix.h"
+#include "sys/stat.h"
 int main(int argc, char *argv[]){
-  int cols,rows,data_type;
+  int cols,rows,data_type=-1;
   int i,j,k,elements;
   void *generic_pointer;
   double *dbl_ptr;
@@ -23,6 +24,7 @@ int main(int argc, char *argv[]){
       return _FAILURE_;
   }
   dbl_ptr = generic_pointer;
+  
   for (i=0; (i<cols)&&(dbl_ptr[i]!=0.0); i++);
   elements = i;
   free(generic_pointer);
@@ -52,6 +54,14 @@ int main(int argc, char *argv[]){
     printf("Writing [%d x (%d)%d] matrix %s to file %s.\n",
 	   rows,min(elements,cols),cols,argv[i],tmpstring);
     datfile = fopen(tmpstring,"w");
+    if (datfile==NULL){
+      mkdir("output",S_IRWXU|S_IRGRP|S_IXGRP|S_IXOTH);
+      datfile = fopen(tmpstring,"w");
+    }
+    if (datfile==NULL){
+      printf("Could not open file: %s for output!\n",tmpstring);
+      return _FAILURE_;
+    }
     for (j=0; j<min(cols,elements); j++){
       for (k=0; k<rows; k++){
 	switch (data_type){

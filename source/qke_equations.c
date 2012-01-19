@@ -623,7 +623,7 @@ int qke_stop_at_L(double t,
 		  void *param,
 		  ErrorMsg error_message){
   qke_param *pqke=param;
-  if (fabs(y[pqke->index_L]*_L_SCALE_) >= pqke->L_final){
+  if (fabs(y[pqke->index_L]*_L_SCALE_) <= pqke->L_final){
     return _TRUE_;
   }
   else{
