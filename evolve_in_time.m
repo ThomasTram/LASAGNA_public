@@ -1,18 +1,21 @@
 clc;
 clear;
 close all;
-filename = 'd:\Shared\lasagna_svn\output\dump_L_nh.mat';
+%filename = 'd:\Shared\lasagna_svn\thermal_IH_1\dump_3_3.mat';
+%filename = 'd:\Shared\lasagna_svn\thermal_NH_2\dump_3_3.mat';
+%filename = 'd:\Shared\lasagna_svn\output\dump_7_7.mat';
+%filename = 'd:\Shared\lasagna_svn\output\dump_L_nh.mat';
 %filename = 'd:\Shared\lasagna_svn\output\too_late_for_repopulation.mat';
-%filename = 'd:\Shared\lasagna_svn\output\start_of_sterile_osc.mat';
+filename = 'd:\Shared\lasagna_svn\NH_1em4_500_3x3\dump_000_000.mat';
 
-S = load(filename,'T','x_grid','Ps_plus','Ps_minus','Pa_plus','Pa_minus',...
+S = load(filename,'T','L','x_grid','Ps_plus','Ps_minus','Pa_plus','Pa_minus',...
     'Py_plus','Py_minus','xi','alpha_rs');
 
 mask = S.T~=0;
 last_idx = sum(mask);
 
 follow_index = 40;
-speed = 10;
+speed = 5;
 count = 1;
 for i=1:speed:last_idx
     x_grid = sqrt(S.x_grid(:,i)-1e-12);
@@ -23,7 +26,9 @@ for i=1:speed:last_idx
         plot(xi(1,:),ylim, xi(2,:),ylim);
         plot(x_grid(follow_index),S.Ps_plus(follow_index,i),'r*');
     hold off
-    title(['Temperature: ',num2str(S.T(i)*1e3,4),'MeV.'])
+    title({['Temperature: ',num2str(S.T(i)*1e3,4),'MeV.'];...
+        ['L = ',num2str(S.L(i))];...
+        'Ps^+'})
     subplot(2,3,4)
     plot(x_grid,S.Ps_minus(:,i),'LineWidth',2)
     hold on; plot(xi(1,:),ylim, xi(2,:),ylim);hold off
@@ -64,3 +69,4 @@ end
 figure
 plot(Tvec,Neff,Tvec,Neff2)
 set(gca,'Xdir','reverse')
+
