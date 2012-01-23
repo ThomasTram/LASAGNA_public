@@ -117,7 +117,7 @@ int evolver_ndf15(
 	
   /* Misc: */
   int stepstat[6],nfenj,j,ii,jj, numidx, neqp=neq+1;
-  int verbose=6;
+  int verbose=5;
 
   /** Allocate memory . */
 
@@ -535,7 +535,7 @@ for(ii=1;ii<=neq;ii++){
       err = err * erconst[k-1];
       if (verbose>4)
 	printf("%e %d %e %e .. v = [%g, %g]\n",
-	       t,maxerr,err,absh,ynew[maxerr+1],ynew[0]);
+	       t,maxerr,err,absh,ynew[maxerr+1],ynew[1]);
       if (err>rtol){
 	/*Step failed */
 	stepstat[1]+= 1;
@@ -582,6 +582,9 @@ for(ii=1;ii<=neq;ii++){
       }
     }
     /* End of conditionless FOR loop */
+    if (verbose>4)
+      fprintf(stderr,"%.16e %.16e %.16e %.16e %.16e %.16e\n",
+	      t,ynew[2103],ynew[2104],ynew[2105],ynew[2106],ynew[2107]);
     stepstat[0] += 1;
 		 
     /* Update dif: */
@@ -1182,15 +1185,15 @@ int numjac(
 
   /* Sparse calculation?*/
   if ((jac->pattern_supplied==_TRUE_)||((jac->use_sparse)&&(jac->repeated_pattern >= jac->trust_sparse))){
-    printf("Sparse calculation..neq=%d, has grouping=%d\n",neq,jac->has_grouping);
-    printf("jac->pattern_supplied = %d\n",jac->pattern_supplied);
+    //printf("Sparse calculation..neq=%d, has grouping=%d\n",neq,jac->has_grouping);
+    //printf("jac->pattern_supplied = %d\n",jac->pattern_supplied);
     /* Everything done sparse'ly. Do we have a grouping? */
     if (jac->has_grouping==0){
       jac->max_group = column_grouping2(jac->spJ,jac->col_group,jac->col_wi);
       jac->has_grouping = 1;
     }
     colmax = jac->max_group+1;
-    printf("->groups=%d/%d.\n",colmax,neq);
+    //printf("->groups=%d/%d.\n",colmax,neq);
     for(j=1;j<=colmax;j++){
       /*loop over groups */
       group = j-1;

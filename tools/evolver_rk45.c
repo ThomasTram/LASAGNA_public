@@ -403,7 +403,7 @@ int evolver_rkdp45(
 	errmax = errtemp;
       }
     }
-    //printf("h: %g, errmax = %g\n",h,errmax);
+    printf("h: %g, errmax = %g\n",h,errmax);
     if ((errmax>rtol)&&(fabs(h)>min_step)){
       if (verbose>1) printf("Step rejected..\n");
       stats[1]++;
@@ -419,6 +419,8 @@ int evolver_rkdp45(
     else{
       //Step accepted.
       stats[0]++;
+      fprintf(stderr,"%.16e %.16e %.16e %.16e %.16e %.16e\n",
+	      t,ynew[2102],ynew[2103],ynew[2104],ynew[2105],ynew[2106]);
       if (verbose>1)
 	printf("Step accepted..\n");
       nofailed = _TRUE_;

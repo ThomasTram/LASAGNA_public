@@ -66,7 +66,7 @@ int main(int argc, char **argv) {
 				qke_struct.Ai,
 				qke_store_output,
 				NULL,
-				qke_stop_at_L,
+				NULL,//qke_stop_at_L,
 				error_message);
   end = clock();
   cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;

@@ -6,7 +6,8 @@ close all;
 %filename = 'd:\Shared\lasagna_svn\output\dump_7_7.mat';
 %filename = 'd:\Shared\lasagna_svn\output\dump_L_nh.mat';
 %filename = 'd:\Shared\lasagna_svn\output\too_late_for_repopulation.mat';
-filename = 'd:\Shared\lasagna_svn\NH_1em4_500_3x3\dump_000_000.mat';
+%filename = 'd:\Shared\lasagna_svn\NH_1em4_500_3x3\dump_000_000.mat';
+filename = 'd:\Shared\lasagna_svn\output\dump.mat'
 
 S = load(filename,'T','L','x_grid','Ps_plus','Ps_minus','Pa_plus','Pa_minus',...
     'Py_plus','Py_minus','xi','alpha_rs');
@@ -15,7 +16,7 @@ mask = S.T~=0;
 last_idx = sum(mask);
 
 follow_index = 40;
-speed = 5;
+speed = 1;
 count = 1;
 for i=1:speed:last_idx
     x_grid = sqrt(S.x_grid(:,i)-1e-12);
@@ -59,14 +60,22 @@ for i=1:speed:last_idx
     I = trapz(xvec,0.5./(1+exp(xvec)).*S.Ps_plus(tt:end,i).*xvec.^3);
     J = trapz(xvec,0.5./(1+exp(xvec)).*S.Pa_plus(tt:end,i).*xvec.^3);
     K = trapz(xvec,0.5./(1+exp(xvec)).*4.*ones(size(S.Pa_plus(tt:end,i))).*xvec.^3);
+    M = trapz(xvec,xvec.^2./(1+exp(xvec)).*S.Pa_minus(tt:end,i));
+    N = 4*trapz(xvec,xvec.^2./(exp(xvec)-1).*ones(size(S.Pa_minus(tt:end,i))));
+    
     I1 = 3.046*I/(7/20*pi^4);
     I2 = I1+(J/K-1);
     Neff(count) = I1;
     Neff2(count) = I2;
+    L1(count) = S.L(i);
+    L2(count) = M/N; %/(8*zeta(3));
     Tvec(count) = S.T(i)*1e3;
     count = count + 1;
 end
 figure
 plot(Tvec,Neff,Tvec,Neff2)
+set(gca,'Xdir','reverse')
+figure
+plot(Tvec,L1,Tvec,L2)
 set(gca,'Xdir','reverse')
 

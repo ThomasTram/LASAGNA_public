@@ -11,9 +11,10 @@ int Newton(int (*vecfun)(double * y, double * Fy, void *param),
 	   int neq,
 	   ErrorMsg error_message){
   double *Fval,**jac,lusign,*vv,*mdelta_y;
-  int i,*indx;
+  int i,*indx,err_idx=-1;
   int converged=_TRUE_;
   double reldif;
+  double abstol=1e-15;
 
   Fval = malloc(sizeof(double)*neq);
   vv = malloc(sizeof(double)*(neq+1));
@@ -62,10 +63,11 @@ int Newton(int (*vecfun)(double * y, double * Fy, void *param),
     for (i=0; i<neq; i++){
       y0[i] -= mdelta_y[i+1];
       reldif = fabs(mdelta_y[i+1]/(y0[i]+DBL_MIN));
-      if (reldif>rtol){
+      if ((reldif>rtol)&&(fabs(mdelta_y[i+1]>abstol))){
 	converged = _FALSE_;
-	/**printf("iter = %d, error = %g\n",*iter,
-	   fabs(mdelta_y[i+1]/y0[i]));*/
+	err_idx=i;
+	/**printf("iter = %d, error = %g. yi=%g, dyi=%g.\n",*iter,
+	   fabs(mdelta_y[i+1]/y0[i]),-mdelta_y[i+1],y0[i]);*/
       }
     }
     if (converged == _TRUE_)
@@ -79,8 +81,10 @@ int Newton(int (*vecfun)(double * y, double * Fy, void *param),
   free(mdelta_y);
   if (converged==_TRUE_)
     return _SUCCESS_;
-  else
+  else{
+    sprintf(error_message,"Newton failed to converge, index of failure: %d, dy=%g, y = %g\n",err_idx,-mdelta_y[err_idx+1],y0[err_idx]); 
     return _FAILURE_;
+  }
 }
 
 int jacobian_for_Newton(int (*vecfun)(double * y, double * Fy, void *param),

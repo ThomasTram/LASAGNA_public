@@ -10,7 +10,7 @@ analytic_static = true;
 %filename = 'd:\Shared\chaos_dat\dump_15_31.mat';
 %filename ='d:\Shared\chaos_dat\loop_line\dump_0_8.mat';
 %filename = 'd:\Shared\lasagna_svn\output\testcase.mat'
-filename = 'd:\Shared\lasagna_svn\output\dump_L_nh.mat'
+filename = 'd:\Shared\lasagna_svn\output\dump.mat'
 
 load(filename)
 S = load(filename);
