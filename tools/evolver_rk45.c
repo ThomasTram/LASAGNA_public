@@ -289,7 +289,7 @@ int evolver_rkdp45(
   double i01,i02,i03;
   double ixx[5][3];
   double ti,ss1,ss2,ss3,ss4,*yinterp,*dyinterp;
-  double min_step = 1e-99;
+  double min_step = 1e-7;
   dy = malloc(sizeof(double)*neq);
   ytemp = malloc(sizeof(double)*neq);
   yinterp = malloc(sizeof(double)*neq);
@@ -419,8 +419,9 @@ int evolver_rkdp45(
     else{
       //Step accepted.
       stats[0]++;
-      fprintf(stderr,"%.16e %.16e %.16e %.16e %.16e %.16e\n",
-	      t,ynew[2102],ynew[2103],ynew[2104],ynew[2105],ynew[2106]);
+      if (print_variables!=NULL){
+	print_variables(tnew,ynew,ki+6*neq,ppaw,error_message); 
+      }
       if (verbose>1)
 	printf("Step accepted..\n");
       nofailed = _TRUE_;

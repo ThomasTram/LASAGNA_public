@@ -7,7 +7,7 @@ close all;
 %filename = 'd:\Shared\lasagna_svn\output\dump_L_nh.mat';
 %filename = 'd:\Shared\lasagna_svn\output\too_late_for_repopulation.mat';
 %filename = 'd:\Shared\lasagna_svn\NH_1em4_500_3x3\dump_000_000.mat';
-filename = 'd:\Shared\lasagna_svn\output\dump.mat'
+filename = 'd:\Shared\lasagna_svn\output\dump2.mat'
 
 S = load(filename,'T','L','x_grid','Ps_plus','Ps_minus','Pa_plus','Pa_minus',...
     'Py_plus','Py_minus','xi','alpha_rs');
@@ -15,10 +15,11 @@ S = load(filename,'T','L','x_grid','Ps_plus','Ps_minus','Pa_plus','Pa_minus',...
 mask = S.T~=0;
 last_idx = sum(mask);
 
-follow_index = 40;
-speed = 1;
+follow_index = 24;
+speed = 10;
+start_at = 1;%1598;
 count = 1;
-for i=1:speed:last_idx
+for i=start_at:speed:last_idx
     x_grid = sqrt(S.x_grid(:,i)-1e-12);
     xi = sqrt([S.xi(:,i),S.xi(:,i)]);
     subplot(2,3,1)

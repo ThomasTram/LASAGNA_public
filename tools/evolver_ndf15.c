@@ -186,7 +186,7 @@ int evolver_ndf15(
   /* 	lasagna_calloc(dif[1],(7*neq+1),sizeof(double),error_message); */
   /* 	dif[0] = NULL; */
   /* 	for(j=2;j<=neq;j++) dif[j] = dif[j-1]+7; */ /* Set row pointers... */ 
-	
+
   /*Set pointers:*/
   ynew = y_inout-1; /* This way y_inout is always up to date. */
 
@@ -237,21 +237,22 @@ int evolver_ndf15(
   hmax = htspan/10.0;
 
   for(ii=0;ii<6;ii++) stepstat[ii] = 0;
-	
-  lasagna_call((*derivs)(t0,y+1,f0+1,parameters_and_workspace_for_derivs,error_message),error_message,error_message);
+  
+  printf("First call to derivs at t=%.16e.\n",t0);
+   lasagna_call((*derivs)(t0,y+1,f0+1,parameters_and_workspace_for_derivs,error_message),error_message,error_message);
   stepstat[2] +=1;
   
   t = t0;
 
 
   nfenj=0;
-  /**  lasagna_call(numjac((*derivs),t,y,f0,&jac,&nj_ws,abstol,neq,
-		    &nfenj,parameters_and_workspace_for_derivs,error_message),
-	     error_message,error_message);
+  lasagna_call(numjac((*derivs),t,y,f0,&jac,&nj_ws,abstol,neq,
+		      &nfenj,parameters_and_workspace_for_derivs,error_message),
+	       error_message,error_message);
   stepstat[3] += 1;
   stepstat[2] += nfenj;
   Jcurrent = _TRUE_; 
-  */
+  
 	
   hmin = 16.0*DBL_EPSILON*fabs(t);
   /*Calculate initial step */
@@ -276,7 +277,7 @@ int evolver_ndf15(
   stepstat[2] += 1;
 
   /*I assume that a full jacobi matrix is always calculated in the beginning...*/
-  /**
+  
 for(ii=1;ii<=neq;ii++){
     ddfddt[ii]=0.0;
     for(jj=1;jj<=neq;jj++){
@@ -291,7 +292,7 @@ for(ii=1;ii<=neq;ii++){
   }
   absh = min(hmax, htspan);
   if (absh * rh > 1.0) absh = 1.0 / rh;
-  */  
+  
   absh = max(absh, hmin);
 
   h = tdir * absh;
@@ -533,7 +534,7 @@ for(ii=1;ii<=neq;ii++){
       }
       //printf("Max Err index: %d\n",maxerr);
       err = err * erconst[k-1];
-      if (verbose>4)
+      if (verbose>3)
 	printf("%e %d %e %e .. v = [%g, %g]\n",
 	       t,maxerr,err,absh,ynew[maxerr+1],ynew[1]);
       if (err>rtol){
@@ -582,9 +583,14 @@ for(ii=1;ii<=neq;ii++){
       }
     }
     /* End of conditionless FOR loop */
-    if (verbose>4)
-      fprintf(stderr,"%.16e %.16e %.16e %.16e %.16e %.16e\n",
-	      t,ynew[2103],ynew[2104],ynew[2105],ynew[2106],ynew[2107]);
+    if (print_variables != NULL){
+      lasagna_call((*print_variables)(t,
+				      ynew+1,
+				      f0+1,
+				      parameters_and_workspace_for_derivs,
+				      error_message),
+		   error_message,error_message);
+    }
     stepstat[0] += 1;
 		 
     /* Update dif: */
@@ -637,14 +643,6 @@ for(ii=1;ii<=neq;ii++){
 			       next,
 			       parameters_and_workspace_for_derivs,
 			       error_message),error_message,error_message);
-	if (print_variables != NULL){
-	  lasagna_call((*print_variables)(t_vec[next],
-					  ynew+1,
-					  f0+1,
-					  parameters_and_workspace_for_derivs,
-					  error_message),
-		       error_message,error_message);
-	}
       }
       next++;	
     }
@@ -730,6 +728,7 @@ for(ii=1;ii<=neq;ii++){
   /* a last call is compulsory to ensure that all quantitites in
      y,dy,parameters_and_workspace_for_derivs are updated to the
      last point in the covered range */
+  printf("Last call to derivs at t=%.16e.\n",tnew);
   lasagna_call(
 	     (*derivs)(tnew,
 		       ynew+1,
@@ -1135,6 +1134,7 @@ int numjac(
   double Fdiff_absrm,Fdiff_new;
   double **dFdy,*fac;
   int *Ap=NULL, *Ai=NULL;
+  FILE *jacfile;
 
   dFdy = jac->dfdy; /* Assign pointer to dfdy directly for easier notation. */
   fac = jac->jacvec;
@@ -1193,7 +1193,7 @@ int numjac(
       jac->has_grouping = 1;
     }
     colmax = jac->max_group+1;
-    //printf("->groups=%d/%d.\n",colmax,neq);
+    printf("->groups=%d/%d.\n",colmax,neq);
     for(j=1;j<=colmax;j++){
       /*loop over groups */
       group = j-1;
@@ -1436,6 +1436,7 @@ int numjac(
     if (jac->use_sparse==_TRUE_){
       if ((jac->has_pattern==_TRUE_)&&(pattern_broken==_FALSE_)){
 	/*New jacobian fitted into the current sparsity pattern:*/
+	
 	jac->repeated_pattern++;
 	/* printf("\n Found repeated pattern. nz=%d/%d and 
 	   rep.pat=%d.",nz,neq*neq,jac->repeated_pattern); */
@@ -1445,6 +1446,12 @@ int numjac(
 	jac->repeated_pattern = 0;
       }
       jac->has_pattern = 1;
+      jacfile=fopen("jac_num_Ap.dat","w");
+      for (i=0; i<=neq; i++) fprintf(jacfile,"%d ",Ap[i]);
+      fclose(jacfile);
+      jacfile=fopen("jac_num_Ai.dat","w");
+      for (i=0; i<Ap[neq]; i++) fprintf(jacfile,"%d ",Ai[i]);
+      fclose(jacfile);
     }
   }
   return _SUCCESS_;
@@ -1474,7 +1481,7 @@ int initialize_jacobian(struct jacobian *jac, int neq, ErrorMsg error_message){
   jac->sparse_stuff_initialized=0;
 	
   /*Setup memory for the pointers of the dense method:*/
-  /**
+  
   lasagna_alloc(jac->dfdy,sizeof(double*)*(neq+1),error_message); 
 
   lasagna_alloc(jac->dfdy[1],sizeof(double)*(neq*neq+1),error_message);
@@ -1487,7 +1494,7 @@ int initialize_jacobian(struct jacobian *jac, int neq, ErrorMsg error_message){
   jac->LU[0] = NULL;
   for(i=2;i<=neq;i++) jac->LU[i] = jac->LU[i-1]+neq; 
 
-  */	
+  
   lasagna_alloc(jac->LUw,sizeof(double)*(neq+1),error_message);
   lasagna_alloc(jac->jacvec,sizeof(double)*(neq+1),error_message);
   lasagna_alloc(jac->luidx,sizeof(int)*(neq+1),error_message);
@@ -1517,13 +1524,13 @@ int initialize_jacobian(struct jacobian *jac, int neq, ErrorMsg error_message){
 }
 
 int uninitialize_jacobian(struct jacobian *jac){
-  /**
+  
   free(jac->dfdy[1]);
   free(jac->dfdy);
   
   free(jac->LU[1]);
   free(jac->LU);
-  */
+  
   free(jac->luidx);
   free(jac->LUw);
   free(jac->jacvec);

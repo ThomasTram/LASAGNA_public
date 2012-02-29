@@ -4,19 +4,22 @@ clear;clc;
 close all;
 %filename = 'output/sim_alpha_1.mat'
 %momentum bin of special interest: in [1; vres]
-mbin = 1;
+mbin = 51;
 analytic_static = true;
+Ti_lowtemp = 30;%MeV
 %filename = 'output/dump.mat';
 %filename = 'd:\Shared\chaos_dat\dump_15_31.mat';
 %filename ='d:\Shared\chaos_dat\loop_line\dump_0_8.mat';
 %filename = 'd:\Shared\lasagna_svn\output\testcase.mat'
-filename = 'd:\Shared\lasagna_svn\output\dump.mat'
-filename = 'd:\Shared\lasagna_svn\runlasagna_001_002\dump_001_002.mat'
+filename = 'd:\Shared\lasagna_svn\output\dump2.mat'
+%filename = 'd:\Shared\lasagna_svn\runlasagna_001_002\dump_001_002.mat'
 
 load(filename)
 S = load(filename);
 %Use T in MeV:
 T = T*1000;
+last_idx = length(T)-sum(T==0);
+
 %Construct linear combinations of (more) physical quantities:
 P0_plus = 0.5*(Pa_plus+Ps_plus);
 P0_minus = 0.5*(Pa_minus+Ps_minus);
@@ -67,9 +70,33 @@ Px_static_plus = Px_static_grid + Px_bar_static_grid;
 Px_static_minus = Px_static_grid - Px_bar_static_grid;
 
 
+%Low temperature approximation
+idx_Ti=sum(T>Ti_lowtemp);
+% mask_integral = idx_Ti:last_idx;
+% HT = sqrt(4*pi^3*3.4/45)*T(mask_integral).^3/(1.22e22);
+% HT_grid = HT(mask,:);
+% 
+% phase = trapz(T(mask_integral),-sqrt(Vx_grid(:,mask_integral).^2+...
+%     Vz_grid(:,mask_integral).^2)./HT_grid,2);
+% phase_bar = trapz(T(mask_integral),-sqrt(Vx_grid(:,mask_integral).^2+...
+%     Vz_bar_grid(:,mask_integral).^2)./HT_grid,2);
+
+alpha_grid = asin(Vz_grid./sqrt(Vx_grid.^2+Vz_grid.^2));
+alpha_bar_grid = asin(Vz_bar_grid./sqrt(Vx_grid.^2+Vz_bar_grid.^2));
+
+Pz_lastidx = sin(alpha_grid(:,idx_Ti)).*sin(alpha_grid(:,last_idx)).*Pz(:,idx_Ti);
+Pz_bar_lastidx = sin(alpha_bar_grid(:,idx_Ti)).*sin(alpha_bar_grid(:,last_idx)).*Pz_bar(:,idx_Ti);
+
+Pz_lastidx3 = Vz_grid(:,idx_Ti).*Vz_grid(:,last_idx)...
+    ./sqrt(Vx_grid(:,last_idx).^2+Vz_grid(:,last_idx).^2)...
+    ./sqrt(Vx_grid(:,idx_Ti).^2+Vz_grid(:,idx_Ti).^2)...
+    .*Pz(:,idx_Ti);
+
+Pz_lastidx2 = Pz_lastidx + cos(alpha_grid(:,idx_Ti)).^2.*Pz(:,idx_Ti);
+Pz_bar_lastidx2 = Pz_bar_lastidx + cos(alpha_bar_grid(:,idx_Ti)).^2.*Pz_bar(:,idx_Ti);
+
 %Plot stuff
 scrsz = get(0,'ScreenSize');
-last_idx = length(T)-sum(T==0);
 
 %Debug stuff:
 Py_static_mean = mean(Py_static_grid(:,1:last_idx),2);
@@ -180,9 +207,31 @@ set(gca,'xscale','log','yscale','log');
 legend(legendcell)
 title('$|V_x/\sqrt{D^2+V_z^2}|$','Interpreter','latex')
 
+
+figure
+xvec = sqrt(x_grid(:,last_idx));
+subplot(2,2,1)
+plot(xvec,Pz(:,last_idx),xvec,Pz(:,idx_Ti),xvec,Pz_lastidx,xvec,Pz_lastidx2,xvec,Pz_lastidx3)
+title(['Pz at T=',num2str(T(last_idx)),'MeV. Low temperature evolution imposed at T=',...
+    num2str(T(idx_Ti)),'MeV']);
+subplot(2,2,2)
+plot(xvec,Pz_bar(:,last_idx),xvec,Pz_bar_lastidx,xvec,Pz_bar_lastidx2)
+title(['Pz at T=',num2str(T(last_idx)),'MeV.']);
 %figure
 %nice_plot(1,1,1,T,vi,last_idx)
-
+subplot(2,2,3)
+semilogy(xvec,abs(Vx_grid(:,last_idx)./Vz_grid(:,last_idx)),...
+    xvec,abs(Vx_grid(:,idx_Ti)./Vz_grid(:,idx_Ti)),...
+    xvec,abs(Vx_grid(:,last_idx)./Vz_bar_grid(:,last_idx)),...
+    xvec,abs(Vx_grid(:,idx_Ti)./Vz_bar_grid(:,idx_Ti)))
+title('|Vx/Vz| and |Vx/Vz_{bar}|')
+legend(['At T=',num2str(T(last_idx)),'MeV'],['At T=',num2str(T(idx_Ti)),'MeV'],...
+    ['At T=',num2str(T(last_idx)),'MeV'],['At T=',num2str(T(idx_Ti)),'MeV'])
+subplot(2,2,4)
+%semilogy(xvec,Vx_grid(:,last_idx),xvec,abs(Vz_grid(:,last_idx)),...
+%    xvec,abs(Vz_bar_grid(:,last_idx)))
+plot(xvec,Vx_grid(:,last_idx),xvec,Vz_grid(:,last_idx),...
+    xvec,Vz_bar_grid(:,last_idx))
 
 figure('OuterPosition',[1 scrsz(4)/10 scrsz(3) 0.9*scrsz(4)])
 %figure('OuterPosition',[1 scrsz(4) scrsz(3) scrsz(4)])

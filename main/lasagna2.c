@@ -16,6 +16,7 @@ int main(int argc, char **argv) {
 
   extern int evolver_radau5();
   extern int evolver_ndf15(); 	
+  extern int evolver_rkdp45(); 	
   int (*generic_evolver)();  
 
   func_return = input_init_from_arguments(argc, 
@@ -36,8 +37,11 @@ int main(int argc, char **argv) {
   if(qke_struct.evolver == 0){
     generic_evolver = evolver_radau5;
   }
-  else{
+  else if (qke_struct.evolver == 1){
     generic_evolver = evolver_ndf15;
+  }
+  else {
+    generic_evolver = evolver_rkdp45;
   }
   
   qke_initial_conditions_fixed_grid(qke_struct.T_initial, 
@@ -46,6 +50,7 @@ int main(int argc, char **argv) {
   
   qke_init_output(&qke_struct);
 
+  qke_struct.dLdT_approx = _FALSE_;
   start = clock();  
   func_return = generic_evolver(qke_derivs_fixed_grid,
 				qke_struct.T_initial,
@@ -61,8 +66,8 @@ int main(int argc, char **argv) {
 				qke_struct.Ap,
 				qke_struct.Ai,
 				qke_store_output,
-				NULL,
-				qke_stop_at_L,
+				qke_print_variables,
+				NULL,//qke_stop_at_L,
 				error_message);
   end = clock();
   cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
@@ -71,6 +76,7 @@ int main(int argc, char **argv) {
   free(y_inout);
   free(interp_idx);
   free_qke_param(&qke_struct);
+  background_free_dof(&qke_struct.pbs);
 
 
   if (func_return == _FAILURE_){

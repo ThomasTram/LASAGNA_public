@@ -73,7 +73,7 @@ int evolver_radau5(
   double theta_reuse_jacobian=0.1, same_step_lower=0.99, same_step_upper=2.0;
   double threshold = abstol/rtol;
   double tol_newton = rtol*max(100*DBL_EPSILON,min(0.03,sqrt(rtol)));
-  int newt_iter_max = 10;
+  int newt_iter_max = 10, verbose=5;
 
   int stepstat[6] = {0, 0, 0, 0, 0, 0};
   int newt_iter, tdir, next, nfenj;
@@ -183,23 +183,6 @@ int evolver_radau5(
 	       error_message);
   stepstat[2]++;
   
-  nfenj=0;
-  lasagna_call(numjac((*derivs),
-		      t,
-		      y0-1,
-		      f0-1,
-		      &jac,
-		      &nj_ws,
-		      abstol,
-		      neq,
-		      &nfenj,
-		      parameters_and_workspace_for_derivs,
-		      error_message),
-	       error_message,
-	       error_message);
-  stepstat[3] += 1;
-  stepstat[2] += nfenj;
-  J_current = _TRUE_;
   rh = error_norm(f0, y0, threshold, neq);
   rh *=1.25/rtol;
 
@@ -222,6 +205,24 @@ int evolver_radau5(
   stepstat[2] += 1;
 
   /*I assume that a full jacobi matrix is always calculated in the beginning...*/
+  
+  nfenj=0;
+  lasagna_call(numjac((*derivs),
+		      t,
+		      y0-1,
+		      f0-1,
+		      &jac,
+		      &nj_ws,
+		      abstol,
+		      neq,
+		      &nfenj,
+		      parameters_and_workspace_for_derivs,
+		      error_message),
+	       error_message,
+	       error_message);
+  stepstat[3] += 1;
+  stepstat[2] += nfenj;
+  J_current = _TRUE_;
   for(i=0; i<neq; i++){
     dfdt[i]=0.0;
     for(j=0; j<neq; j++){
@@ -231,12 +232,14 @@ int evolver_radau5(
   }
   rh = error_norm(y0, dfdt, threshold, neq);
   rh = 1.25*sqrt(0.5*rh/rtol);
-
+  
   absh = fabs(t_final-t_ini);
   if (absh * rh > 1.0) 
     absh = 1.0 / rh;
   absh = max(absh, abshmin);
+  
   h = tdir * absh;
+  
    /* Done calculating initial step
      Get ready to do the loop:*/
   /** If we have a pattern, we apply it here and do one 
@@ -523,6 +526,9 @@ int evolver_radau5(
     else{  
       //Step accepted!
       //printf("Step accepted!\n");
+      if (verbose>4)
+	printf("%.16e %.16e\n",
+		t,h);
       stepstat[0]++;
       first_step = _FALSE_;
       last_failed = _FALSE_;
@@ -565,6 +571,16 @@ int evolver_radau5(
 		   error_message,
 		   error_message);
       stepstat[2]++;
+
+      if (print_variables != NULL){
+	lasagna_call((*print_variables)(t,
+					y0,
+					f0,
+					parameters_and_workspace_for_derivs,
+					error_message),
+		     error_message,error_message);
+      }
+
       
       //Decide how to proceed in the next step:
       reuse_jacobian = _FALSE_;
