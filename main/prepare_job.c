@@ -25,9 +25,9 @@ int main(int argc, char **argv){
   double deltam2_expl = -1.0, deltam2_expr = 0.5, deltam2_exp;
   */  
   double deltam2, sinsq2theta;
-  double L_initial=1e-9,T_initial;
-  int sign_deltam2 = -1;
-  int i,j,deltares=16,sinsqres=16;
+  double L_initial=1e-2,T_initial;
+  int sign_deltam2 = 1;
+  int i,j,deltares=4,sinsqres=4;
   FILE *parameter_file;
   FILE *aux_file;
   //delta_m2 = 1e-17
@@ -39,13 +39,13 @@ int main(int argc, char **argv){
     "--- Oscillation parameters -----------\n"
     "is_electron = 0\n"
     "--- Evolution parameters -----------\n"
-    "L_initial = 1e-9\n"
+    "L_initial = 1e-2\n"
     "T_final = 0.001\n"
     "L_final = -1.0\n"
     "--- Output parameters ----------------\n"
     "Tres = 100\n"
     "--- Precision parameters -------------\n"
-    "evolver = 1\n"
+    "evolver = 2\n"
     "rtol = 1e-3\n"
     "abstol = 1e-6\n"
     "vres = 300\n"
@@ -83,11 +83,12 @@ int main(int argc, char **argv){
     deltam2_exp = deltam2_expl + i*(deltam2_expr-deltam2_expl)/(deltares-1.0);
     deltam2 = sign_deltam2*pow(10,deltam2_exp)*1e-18;
     T_initial = 1e-3*pow(0.1242*fabs(deltam2*1e18)/(fabs(L_initial)*0.1),0.25);
+    T_initial +=1e-3*10.0;
     if (T_initial>0.040)
       T_initial = 0.040;
     if (T_initial<0.0011)
       T_initial = 0.0011;
-    T_initial=0.040;
+    //T_initial=0.040;
     sprintf(line_deltam2,"delta_m2 = %.14e\n",deltam2);
     sprintf(line_T_initial,"T_initial = %.14e\n",T_initial);
     for (j=0; j<sinsqres; j++){

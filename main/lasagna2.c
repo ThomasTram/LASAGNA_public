@@ -66,7 +66,7 @@ int main(int argc, char **argv) {
 				qke_struct.Ap,
 				qke_struct.Ai,
 				qke_store_output,
-				qke_print_variables,
+				NULL, //qke_print_variables,
 				NULL,//qke_stop_at_L,
 				error_message);
   end = clock();
