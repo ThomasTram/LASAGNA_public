@@ -13,6 +13,7 @@ typedef struct qke_param_structure{
   double L1;
   double T1;
   int dLdT_approx;
+  int L_decay_trigger;
   char output_filename[_FILENAMESIZE_]; //Where to write output.
   int evolver;   //Which time integrator to use
   int nproc;     //Number of cores available.

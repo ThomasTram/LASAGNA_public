@@ -51,6 +51,7 @@ int main(int argc, char **argv) {
   qke_init_output(&qke_struct);
 
   qke_struct.dLdT_approx = _FALSE_;
+  qke_struct.L_decay_trigger = _FALSE_;
   start = clock();  
   func_return = generic_evolver(qke_derivs_fixed_grid,
 				qke_struct.T_initial,

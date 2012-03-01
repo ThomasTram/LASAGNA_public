@@ -2392,7 +2392,7 @@ int qke_derivs_fixed_grid(double T,
   int idx;
 
   double V_scale=1.0,Vz,erfres,T_fiducial=1e-4,k3, mu_fiducial=0.0023;
-  double L_from_int, I_Paminus;
+  double L_from_int, I_Paminus, dLdT;
   
 
   L = y[pqke->index_L]*_L_SCALE_;
@@ -2460,17 +2460,24 @@ int qke_derivs_fixed_grid(double T,
   }
 
   /** Calculate RHS: */ 
+  dLdT = -1.0/(8.0*H*T*_ZETA3_)*I_VxPy_minus;
+  dy[pqke->index_L] = dLdT/_L_SCALE_;
   
-  dy[pqke->index_L] = -1.0/(8.0*H*T*_ZETA3_)*I_VxPy_minus/_L_SCALE_;
-  if (fabs(L)<0.9*fabs(pqke->L_initial)){
+  if ((pqke->L_decay_trigger == _FALSE_)&&(dLdT/L<-1e-4)){
+    pqke->L_decay_trigger = _TRUE_;
+    printf("L decay trigger active at T=%g MeV.\n",T*1e3);
+  }
+
+  //  if (fabs(L)<0.9*fabs(pqke->L_initial)){
+  if (pqke->L_decay_trigger == _TRUE_){
     if (pqke->dLdT_approx == _FALSE_){
       pqke->mu = dy[pqke->index_L]/L;
       pqke->T1 = T;
       pqke->dLdT_approx = _TRUE_;
     }
-    dy[pqke->index_L] = L*(pqke->mu+6.9e10*pow(pqke->T1-T,2)/_L_SCALE_);
+    dy[pqke->index_L] = L*(pqke->mu+6.9e6*pow(pqke->T1-T,2)/_L_SCALE_);
   }
-  
+    
 
   /** All quantities defined on the grid: */
 

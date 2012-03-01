@@ -13,12 +13,12 @@ int main(int argc, char **argv){
   char line_sinsq[256];
   char line_deltam2[256];
   char line_T_initial[256];
-  char line_dispatch[65536];
+  char line_dispatch[1048576];
   char line_lasagna[256];
   char wrkdir[256];
   
-     double sinsq_expl = -4.0, sinsq_expr = -0.8, sinsq_exp;
-     double deltam2_expl = -3.0, deltam2_expr = 1.0, deltam2_exp;
+     double sinsq_expl = -3.3, sinsq_expr = -1.0, sinsq_exp;
+     double deltam2_expl = -1.0, deltam2_expr = 1.0, deltam2_exp;
   
   /**
   double sinsq_expl = -2.0, sinsq_expr = -1.0, sinsq_exp;
@@ -26,8 +26,8 @@ int main(int argc, char **argv){
   */  
   double deltam2, sinsq2theta;
   double L_initial=1e-2,T_initial;
-  int sign_deltam2 = 1;
-  int i,j,deltares=4,sinsqres=4;
+  int sign_deltam2 = -1;
+  int i,j,deltares=8,sinsqres=8;
   FILE *parameter_file;
   FILE *aux_file;
   //delta_m2 = 1e-17
@@ -43,12 +43,12 @@ int main(int argc, char **argv){
     "T_final = 0.001\n"
     "L_final = -1.0\n"
     "--- Output parameters ----------------\n"
-    "Tres = 100\n"
+    "Tres = 10\n"
     "--- Precision parameters -------------\n"
-    "evolver = 2\n"
+    "evolver = 1\n"
     "rtol = 1e-3\n"
-    "abstol = 1e-6\n"
-    "vres = 300\n"
+    "abstol = 1e-3\n"
+    "vres = 200\n"
     "alpha = 1.0\n"
     "xext = 3.1\n"
     "xmin = 1e-4\n"
@@ -65,11 +65,11 @@ int main(int argc, char **argv){
     "#!/bin/bash\n"
     "mkdir /scratch/$PBS_JOBID/$0\n"
     "cp dsdofHP_B.dat /scratch/$PBS_JOBID/$0\n"
-    "cp lasagna /scratch/$PBS_JOBID/$0\n";
+    "cp lasagna2 /scratch/$PBS_JOBID/$0\n";
 
   char *jobscript_string =
     "#!/bin/bash\n"
-    "#PBS -q q8\n" 
+    "#PBS -q q8n\n" 
     "#PBS -l nodes=2:ppn=8\n"
     "#PBS -l walltime=40:30:00\n"
     "echo \"========= Job started  at `date` ==========\"";
@@ -88,7 +88,7 @@ int main(int argc, char **argv){
       T_initial = 0.040;
     if (T_initial<0.0011)
       T_initial = 0.0011;
-    //T_initial=0.040;
+    T_initial=0.040;
     sprintf(line_deltam2,"delta_m2 = %.14e\n",deltam2);
     sprintf(line_T_initial,"T_initial = %.14e\n",T_initial);
     for (j=0; j<sinsqres; j++){
@@ -112,7 +112,7 @@ int main(int argc, char **argv){
 	      "cp %s /scratch/$PBS_JOBID/$0\n",
 	      parameter_filename);
       sprintf(line_lasagna,
-	      "cd /scratch/$PBS_JOBID/$0\n./lasagna %s > $0.txt\n",
+	      "cd /scratch/$PBS_JOBID/$0\n./lasagna2 %s > $0.txt\n",
 	      parameter_filename);
       sprintf(line_cpout,
 	      "cp $0.txt $PBS_O_WORKDIR\ncp dump_%03d_%03d.mat $PBS_O_WORKDIR\n",
