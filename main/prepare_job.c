@@ -26,7 +26,7 @@ int main(int argc, char **argv){
   */  
   double deltam2, sinsq2theta;
   double L_initial=1e-2,T_initial;
-  int sign_deltam2 = -1;
+  int sign_deltam2 = 1;
   int i,j,deltares=8,sinsqres=8;
   FILE *parameter_file;
   FILE *aux_file;
@@ -43,7 +43,7 @@ int main(int argc, char **argv){
     "T_final = 0.001\n"
     "L_final = -1.0\n"
     "--- Output parameters ----------------\n"
-    "Tres = 10\n"
+    "Tres = 200\n"
     "--- Precision parameters -------------\n"
     "evolver = 1\n"
     "rtol = 1e-3\n"
