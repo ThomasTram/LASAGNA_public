@@ -2,26 +2,28 @@ function lepton_number_thermalisation(varargin)
 close all
 if nargin==0
     clear; clc;
-    prefix_filename = 'IH_L_1em5_';
+    prefix_filename = 'stardust18';
     %dirname = 'd:\Shared\lasagna_svn\thermal_NH_3\';
     %dirname = 'd:\Shared\lasagna_radau\output\run1\';
     %dirname = 'd:\Shared\lasagna_radau\output\';
     %dirname = '/users/ire/Desktop/RADAUS5/version_0.4/lasagnaLcheck/output/zero_nh/';
     %dirname = 'd:\Shared\lasagna_svn\thermal_NH_2\'
     %dirname = 'd:\Shared\lasagna_svn\thermal_NH_1616\';
-    dirname = 'd:\Shared\lasagna_svn\thermal_old\thermal_NH_8\';
+    %dirname = 'd:\Shared\lasagna_svn\thermal_old\thermal_NH_8\';
+    dirname  = 'd:\Shared\lasagna_svn\stardust18\'
     
-    dm_res = 16;
-    sin_res = 16;
+    dm_res = 8;
+    sin_res = 8;
     
     %Plot options interactive:
     Show_final_sterile_spectrum = false;
     Show_evolution_of_resonances = true;
+    Show_evolution_of_Neff = true;
     Show_sweep_plot = true;
     use_old_calculation = false;
     use_new_calculation = true;
-    save_plots = false;
-    view_plots = true;
+    save_plots = true;
+    view_plots = false;
 else
     prefix_filename = varargin{2};
     dirname = varargin{1};
@@ -63,7 +65,9 @@ for i=1:length(S)
 end
 %mask_S = (length(S)-3):length(S);
 mask_S = 8:8:64;
-mask_S = 49:length(S);
+lenS = floor(sqrt(length(S)));
+
+mask_S = floor(lenS/2):lenS:length(S);
 plotstring = 'plot(';
 plotstring2 = 'plot(';
 plotstring3 = 'plot(';
@@ -343,6 +347,20 @@ for i=1:size(notconverged,1)
     end
 end
 try
+    sizy1 = size(Y,1);
+    sizy2 = size(Y,2);
+    for i=1:sizy1
+        for j=1:sizy2
+            if (Y(i,j) ~= Y(i,floor(sizy2/2)))
+                Y(i,j) = Y(i,floor(sizy2/2));
+                disp('Y corrected!')
+            end
+            if (X(i,j) ~= X(floor(sizy1/2),j))
+                X(i,j) = X(floor(sizy1/2),j);
+                disp('X corrected!')
+            end
+        end
+    end
     ZI = interp2(X,Y,Z, XI, YI);
     disp('success!');
 catch

@@ -16,8 +16,8 @@ mask = S.T~=0;
 last_idx = sum(mask);
 
 follow_index = 24;
-speed = 10;
-start_at = 1;%1598;
+speed = 5;
+start_at = 1000;%1598;
 count = 1;
 for i=start_at:speed:last_idx
     x_grid = sqrt(S.x_grid(:,i)-1e-12);

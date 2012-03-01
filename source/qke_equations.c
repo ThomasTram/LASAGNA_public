@@ -2463,9 +2463,10 @@ int qke_derivs_fixed_grid(double T,
   dLdT = -1.0/(8.0*H*T*_ZETA3_)*I_VxPy_minus;
   dy[pqke->index_L] = dLdT/_L_SCALE_;
   
-  if ((pqke->L_decay_trigger == _FALSE_)&&(dLdT/L<-1e-4)){
+  if ((pqke->L_decay_trigger == _FALSE_)&&(dLdT/L>1e3)){
     pqke->L_decay_trigger = _TRUE_;
     printf("L decay trigger active at T=%g MeV.\n",T*1e3);
+    printf("L=%g, dLdT=%g 1/MeV\n",L,dLdT*1e3);
   }
 
   //  if (fabs(L)<0.9*fabs(pqke->L_initial)){
@@ -2475,7 +2476,7 @@ int qke_derivs_fixed_grid(double T,
       pqke->T1 = T;
       pqke->dLdT_approx = _TRUE_;
     }
-    dy[pqke->index_L] = L*(pqke->mu+6.9e6*pow(pqke->T1-T,2)/_L_SCALE_);
+    dy[pqke->index_L] = L*(pqke->mu+6.9e10*pow(pqke->T1-T,2)/_L_SCALE_);
   }
     
 
