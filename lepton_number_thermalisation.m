@@ -2,7 +2,7 @@ function lepton_number_thermalisation(varargin)
 close all
 if nargin==0
     clear; clc;
-    prefix_filename = 'stardust18';
+    prefix_filename = 'stardust23';
     %dirname = 'd:\Shared\lasagna_svn\thermal_NH_3\';
     %dirname = 'd:\Shared\lasagna_radau\output\run1\';
     %dirname = 'd:\Shared\lasagna_radau\output\';
@@ -10,7 +10,7 @@ if nargin==0
     %dirname = 'd:\Shared\lasagna_svn\thermal_NH_2\'
     %dirname = 'd:\Shared\lasagna_svn\thermal_NH_1616\';
     %dirname = 'd:\Shared\lasagna_svn\thermal_old\thermal_NH_8\';
-    dirname  = 'd:\Shared\lasagna_svn\stardust18\'
+    dirname  = 'd:\Shared\lasagna_svn\stardust23\'
     
     dm_res = 8;
     sin_res = 8;

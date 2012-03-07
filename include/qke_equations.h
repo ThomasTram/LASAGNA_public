@@ -10,10 +10,7 @@
 typedef struct qke_param_structure{
   double dLdT; //Temproray
   double mu;
-  double L1;
   double T1;
-  int dLdT_approx;
-  int L_decay_trigger;
   char output_filename[_FILENAMESIZE_]; //Where to write output.
   int evolver;   //Which time integrator to use
   int nproc;     //Number of cores available.
@@ -62,6 +59,8 @@ typedef struct qke_param_structure{
   double xext;     //extremum value of distribution, xext \simeg 3.1 for FD
   double eps1;     //Function of xmin,xmax and xext
   double eps2;     //Function of xmin,xmax and xext
+  int L_decay_trigger;
+  double trigger_dLdT_over_L;
   //Common indices:
   int index_L;       //Index of lepton asymetry in y-vector
   int index_n_plus; 

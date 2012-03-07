@@ -62,6 +62,7 @@ int input_init(struct file_content *pfc,
   lasagna_read_double("L_final",pqke->L_final);
   lasagna_read_double("delta_m2",pqke->delta_m2);
   lasagna_read_double_one_of_two("sinsq2theta","theta_zero",pqke->theta_zero);
+  lasagna_read_double("trigger_dLdT_over_L",pqke->trigger_dLdT_over_L);
   if (flag1 == _TRUE_)
     pqke->theta_zero = 0.5*asin(sqrt(pqke->theta_zero));
   lasagna_read_int("is_electron",pqke->is_electron);
@@ -101,7 +102,9 @@ int input_default_params(qke_param *pqke){
   sinsq2theta = pow(10.0,-6.0);
   pqke->theta_zero = 0.5*asin(sqrt(sinsq2theta));
   pqke->is_electron = _FALSE_;
-  pqke->rtol = 1e-2;
+  pqke->rtol = 1e-3;
   pqke->abstol = 1e-5;
+
+  pqke->trigger_dLdT_over_L = 1e100;
   return _SUCCESS_;
 }
