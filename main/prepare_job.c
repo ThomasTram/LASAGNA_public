@@ -17,17 +17,22 @@ int main(int argc, char **argv){
   char line_lasagna[256];
   char wrkdir[256];
   
-     double sinsq_expl = -3.3, sinsq_expr = -1.0, sinsq_exp;
-     double deltam2_expl = -1.0, deltam2_expr = 1.0, deltam2_exp;
+  /**
+double sinsq_expl = -3.3, sinsq_expr = -1.0, sinsq_exp;
+  double deltam2_expl = -1.0, deltam2_expr = 1.0, deltam2_exp;
+  */
+       
+	  double sinsq_expl = -4.0, sinsq_expr = -1.0, sinsq_exp;
+	  double deltam2_expl = -3.0, deltam2_expr = 1.0, deltam2_exp;
   
   /**
-  double sinsq_expl = -2.0, sinsq_expr = -1.0, sinsq_exp;
-  double deltam2_expl = -1.0, deltam2_expr = 0.5, deltam2_exp;
+     double sinsq_expl = -2.0, sinsq_expr = -1.0, sinsq_exp;
+     double deltam2_expl = -1.0, deltam2_expr = 0.5, deltam2_exp;
   */  
   double deltam2, sinsq2theta;
-  double L_initial=1e-2,T_initial;
-  int sign_deltam2 = 1;
-  int i,j,deltares=8,sinsqres=8;
+  double L_initial=0.0,T_initial;
+  int sign_deltam2 = -1;
+  int i,j,deltares=32,sinsqres=32;
   FILE *parameter_file;
   FILE *aux_file;
   //delta_m2 = 1e-17
@@ -39,15 +44,16 @@ int main(int argc, char **argv){
     "--- Oscillation parameters -----------\n"
     "is_electron = 0\n"
     "--- Evolution parameters -----------\n"
-    "L_initial = 1e-2\n"
+    "L_initial = 0.0\n"
     "T_final = 0.001\n"
-    "L_final = -1.0\n"
+    "L_final = 0.0\n"
+    "trigger_dLdT_over_L = 1e10\n"
     "--- Output parameters ----------------\n"
     "Tres = 200\n"
     "--- Precision parameters -------------\n"
     "evolver = 1\n"
-    "rtol = 1e-3\n"
-    "abstol = 1e-3\n"
+    "rtol = 1e-5\n"
+    "abstol = 1e-7\n"
     "vres = 200\n"
     "alpha = 1.0\n"
     "xext = 3.1\n"
@@ -71,7 +77,7 @@ int main(int argc, char **argv){
     "#!/bin/bash\n"
     "#PBS -q q8n\n" 
     "#PBS -l nodes=2:ppn=8\n"
-    "#PBS -l walltime=40:30:00\n"
+    "#PBS -l walltime=140:30:00\n"
     "echo \"========= Job started  at `date` ==========\"";
    char *jobscript_string_end = 
      "echo \"========= Job finished at `date` ==========\"";
@@ -88,7 +94,8 @@ int main(int argc, char **argv){
       T_initial = 0.040;
     if (T_initial<0.0011)
       T_initial = 0.0011;
-    T_initial=0.040;
+    //T_initial=1e-3*2.549*pow(deltam2*1e18,0.25);
+    T_initial = 0.040;
     sprintf(line_deltam2,"delta_m2 = %.14e\n",deltam2);
     sprintf(line_T_initial,"T_initial = %.14e\n",T_initial);
     for (j=0; j<sinsqres; j++){

@@ -54,11 +54,12 @@ int init_qke_param(qke_param *pqke){
     pqke->Tvec[i] = pqke->T_initial+
       i*(pqke->T_final-pqke->T_initial)/(Tres-1.0); 
   }
-  if (pqke->is_electron == _TRUE_)
-    pqke->C_alpha = 1.27;
-  else
-    pqke->C_alpha = 0.92;
-  
+  if (pqke->is_electron == _TRUE_){
+     pqke->C_alpha = 1.27;
+  }
+  else{
+     pqke->C_alpha = 0.92;
+  }
   
   //Set up the indices:
   idx = 0;
@@ -1603,7 +1604,13 @@ int qke_stop_at_L(double t,
 		  void *param,
 		  ErrorMsg error_message){
   qke_param *pqke=param;
-  if (fabs(y[pqke->index_L]*_L_SCALE_) <= pqke->L_final){
+  if (y[pqke->index_L]*_L_SCALE_ <= pqke->L_final){
+    printf("Value stop..\n");
+    return _TRUE_;
+  }
+  else if((y[pqke->index_L] != 0.0)&&
+	  (dy[pqke->index_L]/y[pqke->index_L]>pqke->trigger_dLdT_over_L)){
+    printf("Trigger stop..\n");
     return _TRUE_;
   }
   else{

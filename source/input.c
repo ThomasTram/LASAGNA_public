@@ -66,6 +66,11 @@ int input_init(struct file_content *pfc,
   if (flag1 == _TRUE_)
     pqke->theta_zero = 0.5*asin(sqrt(pqke->theta_zero));
   lasagna_read_int("is_electron",pqke->is_electron);
+  if (pqke->is_electron == _TRUE_)
+    printf("Flavour of active species: Electron\n");
+  else
+    printf("Flavour of active species: Muon/Tau\n");
+  
 
   //Initialise background somewhere
   background_init_dof(&(pqke->pbs));

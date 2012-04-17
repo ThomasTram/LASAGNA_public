@@ -394,7 +394,7 @@ int evolver_rkdp45(
 	err[k] += h*bi_diff[i]*ki[i*neq+k];
       }
     }
-    if (verbose>1)
+    if (verbose>4)
       printf("Finished loop over i, new y has been found.\n");
     // Got new y and error estimate.
     for (k=0,errmax = 0.0; k<neq; k++){
@@ -403,9 +403,11 @@ int evolver_rkdp45(
 	errmax = errtemp;
       }
     }
-    printf("h: %g, errmax = %g\n",h,errmax);
+    if (verbose>3)
+      printf("h: %g, errmax = %g\n",h,errmax);
     if ((errmax>rtol)&&(fabs(h)>min_step)){
-      if (verbose>1) printf("Step rejected..\n");
+      if (verbose>4) 
+	printf("Step rejected..\n");
       stats[1]++;
       //Step rejected.
       if (nofailed == _TRUE_){
@@ -422,7 +424,7 @@ int evolver_rkdp45(
       if (print_variables!=NULL){
 	print_variables(tnew,ynew,ki+6*neq,ppaw,error_message); 
       }
-      if (verbose>1)
+      if (verbose>4)
 	printf("Step accepted..\n");
       nofailed = _TRUE_;
       if ((fabs(h)<=min_step)&&(errmax>rtol))

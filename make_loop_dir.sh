@@ -1,7 +1,8 @@
 #!/bin/bash
 mkdir $1
-gcc -O1 -g -lm main/prepare_job.c -o $1/prepare_job
+cp main/prepare_job.c $1
 cd $1
+gcc -O1 -g -lm prepare_job.c -o prepare_job
 cp ../lasagna* .
 cp ../*.dat .
 ./prepare_job $1

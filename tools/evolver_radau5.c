@@ -73,7 +73,7 @@ int evolver_radau5(
   double theta_reuse_jacobian=0.1, same_step_lower=0.99, same_step_upper=2.0;
   double threshold = abstol/rtol;
   double tol_newton = rtol*max(100*DBL_EPSILON,min(0.03,sqrt(rtol)));
-  int newt_iter_max = 10, verbose=5;
+  int newt_iter_max = 10, verbose=2;
 
   int stepstat[6] = {0, 0, 0, 0, 0, 0};
   int newt_iter, tdir, next, nfenj;
@@ -632,9 +632,8 @@ int evolver_radau5(
     }
     /* Perhaps use stop function: */
     if (stop_function != NULL){
-      if ((stepstat[0]>50000)||
-	  (stop_function(t,y0,f0,parameters_and_workspace_for_derivs,
-			 error_message) == _TRUE_)){      //Stop condition
+      if (stop_function(t,y0,f0,parameters_and_workspace_for_derivs,
+			error_message) == _TRUE_){      //Stop condition
 	lasagna_call((*output)(t,y0,f0,next,
 			       parameters_and_workspace_for_derivs,
 			       error_message),error_message,error_message);
