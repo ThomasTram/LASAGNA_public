@@ -239,6 +239,11 @@ extern "C" {
 		    double *dy,
 		    void *param,
 		    ErrorMsg error_message);
+  int qke_stop_at_trigger(double t,
+			  double *y,
+			  double *dy,
+			  void *param,
+			  ErrorMsg error_message);
   //QKE derivs:
   int qke_derivs(double T, 
 		 double *y, 
@@ -247,6 +252,11 @@ extern "C" {
 		 ErrorMsg error_message);
 
   int qke_derivs_fixed_grid(double T, 
+			    double *y, 
+			    double *dy, 
+			    void *pqke, 
+			    ErrorMsg error_message);
+  int qke_derivs_fixed_grid_thisissostupid(double T, 
 			    double *y, 
 			    double *dy, 
 			    void *pqke, 

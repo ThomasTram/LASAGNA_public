@@ -2,7 +2,8 @@ function lepton_number_thermalisation(varargin)
 close all
 if nargin==0
     clear; clc;
-    prefix_filename = 'stardust23';
+    prefix_filename = 'radau_tmp';
+  %  prefix_filename = 'aa_IH_1em2';
     %dirname = 'd:\Shared\lasagna_svn\thermal_NH_3\';
     %dirname = 'd:\Shared\lasagna_radau\output\run1\';
     %dirname = 'd:\Shared\lasagna_radau\output\';
@@ -10,38 +11,63 @@ if nargin==0
     %dirname = 'd:\Shared\lasagna_svn\thermal_NH_2\'
     %dirname = 'd:\Shared\lasagna_svn\thermal_NH_1616\';
     %dirname = 'd:\Shared\lasagna_svn\thermal_old\thermal_NH_8\';
-    dirname  = 'd:\Shared\lasagna_svn\stardust23\'
+   % dirname  = 'd:\Shared\lasagna_svn\horiz_IH_1em2\'
+    %dirname  = 'd:\Shared\lasagna_svn\te_NH_sup_radau\'
+    dirname  = 'd:\Shared\lasagna_svn\te_IH_0_ndf\'
     
-    dm_res = 8;
-    sin_res = 8;
+    savemat = false;
+    loadmat = false;
     
+    dm_res = 32;
+    sin_res = 32;
+
+    
+    assume_converged = true;
+    Show_last_T = true;
+
     %Plot options interactive:
     Show_final_sterile_spectrum = false;
     Show_evolution_of_resonances = true;
     Show_evolution_of_Neff = true;
-    Show_sweep_plot = true;
+    Show_sweep_plot = false;
     use_old_calculation = false;
     use_new_calculation = true;
     save_plots = true;
     view_plots = false;
 else
+    assume_converged = true;
+    Show_last_T = true;
+
     prefix_filename = varargin{2};
     dirname = varargin{1};
     dm_res = varargin{3};
     sin_res = varargin{4};
     
+    savemat = false;
+    loadmat = false;
+    if varargin{5} == -1
+        savemat = true;
+    elseif varargin{5} == 1
+        loadmat = true;
+    end
+       
     %Plot options non-interactive:
     Show_final_sterile_spectrum = false;
     Show_evolution_of_resonances = true;
     Show_evolution_of_Neff = true;
-    Show_sweep_plot = true;
+    Show_sweep_plot = false;
     use_old_calculation = false;
     use_new_calculation = true;
     save_plots = true;
     view_plots = false;
 end
+s2bound = [-3.3 -1];
+dm2bound = [-1 1];
+POI = [0.05, 1.0]; %sinsq2theta, dm^2/eV^2
+show_POI = true;
 
-refine_mesh = 10;
+refine_mesh = 1;
+lw = 'LineWidth';
 %Aux plot options
 imagepath = 'plots';
 if ~exist(imagepath,'dir')
@@ -53,6 +79,8 @@ txfont = 'Times';
 axangle = 'italic';
 txangle = 'normal';
 axesfs = 18;
+clabelfs = 12;
+clabelfw = 'bold';
 labelfs = 22;
 legfs = 10;
 titlefs = 22;
@@ -64,15 +92,15 @@ for i=1:length(S)
     disp([num2str(i),': ',S(i).name])
 end
 %mask_S = (length(S)-3):length(S);
-mask_S = 8:8:64;
-lenS = floor(sqrt(length(S)));
 
-mask_S = floor(lenS/2):lenS:length(S);
+
+
+
 plotstring = 'plot(';
 plotstring2 = 'plot(';
 plotstring3 = 'plot(';
+plotstring4 = 'plot(';
 
-count = 1;
 deltaNeff_cell =cell(length(S),1);
 for i=1:length(S)
     dat = load([dirname,S(i).name],'T','L','x_grid','Ps_plus','Pa_plus',...
@@ -108,34 +136,42 @@ for i=1:length(S)
     deltaNeff_cell{i} = dvec;
     deltaNeff_final(i)=dvec(end);
     deltaNeff_cell2{i} = dvec2;
-    deltaNeff_final2(i)=dvec2(end);
-    deltaNeff_notconverged(i) = sum(mask)<(numel(mask)-3);
+    deltaNeff_final2(i)=min(1.0,dvec2(end));
+    last_T(i) = T{i}(end);
+    if ~assume_converged
+        deltaNeff_notconverged(i) = sum(mask)<(numel(mask)-3);
+    else
+        deltaNeff_notconverged(i) = false;
+    end
     [xi_unique, xi_idx] = unique(xi_cell{i}(1,:));
-    start_of_sweep(i) = max(1,spline(xi_unique,T{i}(xi_idx),0.1));
+    if length(xi_unique)==1
+        start_of_sweep(i) = xi_unique(1);
+    else
+        start_of_sweep(i) = max(1,spline(xi_unique,T{i}(xi_idx),0.1));
+    end
     if Show_final_sterile_spectrum
         loglog(xvec,Ps_plus_vec)
         hold on
     end
-    if any(i==mask_S)
-        plotstring = [plotstring,'T{',num2str(i),'},deltaNeff_cell{',num2str(i),'},'];
-        plotstring3 = [plotstring3,'T{',num2str(i),'},deltaNeff_cell2{',num2str(i),'},'];
-        plotstring2 = [plotstring2,'T{',num2str(i),'},xi_cell{',num2str(i),'}(1,:),'...
-            'T{',num2str(i),'},xi_cell{',num2str(i),'}(2,:),'];
-        legendcell{count} = ['(sin^2(2\theta), \delta m^2) = (',...
-            num2str(sinsq_theta(i,1),3),',',num2str(delta_m2(i,1)*1.e18,3),')'];
-        legendcell2{2*count-1} = legendcell{count};
-        legendcell2{2*count} = legendcell{count};
-        count = count +1;
-    end
 end
 
-
+%Prepare 2D contour plots:
 deltaNeff=reshape(deltaNeff_final,dm_res,sin_res)';
 deltaNeff2=reshape(deltaNeff_final2,dm_res,sin_res)';
 logsinsq_theta_org=reshape(log10(sinsq_theta),dm_res,sin_res)';
 logdelta_m2_org=reshape(log10(abs(delta_m2)*1.e18),dm_res,sin_res)';
 deltaNeff_notconverged = reshape(deltaNeff_notconverged,dm_res,sin_res)';
 start_of_sweep = reshape(start_of_sweep,dm_res,sin_res)';
+last_T = reshape(last_T,dm_res,sin_res)';
+
+if savemat
+    save('residual.mat','deltaNeff2');
+end
+if loadmat
+    resNeff = load('residual.mat');
+    deltaNeff = deltaNeff+resNeff.deltaNeff2;
+    deltaNeff2 = deltaNeff2+resNeff.deltaNeff2;
+end
 
 logdelta_m2_vec = linspace(min(min(logdelta_m2_org)),max(max(logdelta_m2_org)),refine_mesh*dm_res);
 logsinsq_theta_vec = linspace(min(min(logsinsq_theta_org)),max(max(logsinsq_theta_org)),refine_mesh*sin_res);
@@ -147,7 +183,76 @@ deltaNeff2 = prepare_contour(logsinsq_theta_org, logdelta_m2_org,deltaNeff2,...
     deltaNeff_notconverged,logsinsq_theta, logdelta_m2);
 start_of_sweep = prepare_contour(logsinsq_theta_org, logdelta_m2_org,start_of_sweep,...
     deltaNeff_notconverged,logsinsq_theta, logdelta_m2);
+last_T = prepare_contour(logsinsq_theta_org, logdelta_m2_org,last_T,...
+    deltaNeff_notconverged,logsinsq_theta, logdelta_m2);
+%End 2D contour plots
 
+%Prepare 1D plots:
+lenS = floor(sqrt(length(S)));
+%Where is POI in mesh?
+tmp = 10.^logsinsq_theta_vec;
+target = POI(1);
+idmin = find(target>tmp, 1, 'last' ); %Last where target is larger
+idmax = find(target<tmp, 1 );  %First where target is smaller
+if abs(tmp(idmin)-target)<=abs(tmp(idmax)-target)
+    idPOI(1) = idmin;
+else
+    idPOI(1) = idmax;
+end
+
+tmp = 10.^logdelta_m2_vec;
+target = POI(2);
+idmin = find(target>tmp, 1, 'last' );
+idmax = find(target<tmp, 1 );
+if abs(tmp(idmin)-target)<=abs(tmp(idmax)-target)
+    idPOI(2) = idmin;
+else
+    idPOI(2) = idmax;
+end
+
+%sinsq index down (first)
+mask_S1 = false(size(S));
+mask_S1(idPOI(1)+(idPOI(2)-1)*dm_res) = true;
+mask_S2 = mask_S1;
+%Keep sinsq fixed:
+mask_S1(idPOI(1)) = true;
+mask_S1(idPOI(1)+floor(idPOI(2)/2)*dm_res) = true;
+mask_S1(idPOI(1)+(dm_res-1)*sin_res) = true;
+%Keep dm2 fixed:
+mask_S2(1+(idPOI(2)-1)*sin_res) = true;
+mask_S2(floor(idPOI(1)/2)+(idPOI(2)-1)*sin_res) = true;
+mask_S2(dm_res+(idPOI(2)-1)*sin_res) = true;
+
+count = 1;
+for i=1:length(S)
+    if mask_S2(i)
+        plotstring = [plotstring,'T{',num2str(i),'},deltaNeff_cell{',num2str(i),'},'];
+        plotstring3 = [plotstring3,'T{',num2str(i),'},deltaNeff_cell2{',num2str(i),'},'];
+        plotstring2 = [plotstring2,'T{',num2str(i),'},xi_cell{',num2str(i),'}(1,:),'...
+            'T{',num2str(i),'},xi_cell{',num2str(i),'}(2,:),'];
+        legendcell{count} = ['(sin^2(2\theta), \delta m^2) = (',...
+            num2str(sinsq_theta(i,1),3),',',num2str(delta_m2(i,1)*1.e18,3),')'];
+        legendcell2{2*count-1} = legendcell{count};
+        legendcell2{2*count} = legendcell{count};
+        legendcell3a{count} = legendcell{count};
+        legendcell3b{count} = ['sin^2(2\theta) = ',num2str(sinsq_theta(i,1),3)];
+        count = count +1;
+    end
+end
+count = 1;
+
+for i=1:length(S)
+    if mask_S1(i)
+        plotstring4 = [plotstring4,'T{',num2str(i),'},deltaNeff_cell2{',num2str(i),'},'];
+        legendcell4a{count} = ['(sin^2(2\theta), \delta m^2) = (',...
+            num2str(sinsq_theta(i,1),3),',',num2str(delta_m2(i,1)*1.e18,3),')'];
+        legendcell4b{count} = ['\delta m^2 = ',num2str(delta_m2(i,1)*1.e18,3),'eV^2'];
+        count = count +1;
+    end
+end
+%end prepare 1D plots
+
+%Do plots:
 if use_old_calculation
     my_figure
     contourf(logsinsq_theta,logdelta_m2,deltaNeff)
@@ -184,12 +289,53 @@ if use_old_calculation
 end
 if use_new_calculation
     my_figure
-    contourf(logsinsq_theta,logdelta_m2,deltaNeff2)
+    %cheat to remove 0.99 contours but still calculating contour lines
+    %automatically:
+    C = contourc(logsinsq_theta_vec, logdelta_m2_vec,deltaNeff2);
+    pos = 1;
+    cv = min(min(deltaNeff2));
+    while pos<=length(C)
+        cv = [cv,C(1,pos)];
+        pos = pos+C(2,pos)+1;
+    end
+    if (cv(end)<=1)&&(cv(end)>0.98)
+        cv = cv(1:end-1);
+    end
+    
+    cmin = 0.0;
+    cmax1 = 10^floor(log10(max(max(deltaNeff2))));
+    for r=1:10
+        cmax = r*cmax1;
+        if max(max(deltaNeff2))<=cmax
+            break
+        end
+    end
+    cmax = min(cmax,1.0);
+    
+    [C,h] = contourf(logsinsq_theta,logdelta_m2,deltaNeff2,cv);
+        
     my_title(['\delta N_{eff}, L=',num2str(L{1}(1)),' (2)', ' [',hierarchy,']'])
     my_xlabel('log_{10}(sin^2(2\theta_0))')
     my_ylabel('log_{10}(|\delta m^2|)')
     set_gca
+    
+    set(gca,'clim',[cmin cmax]);
     my_colorbar
+    clabel(C,h,'FontName',txfont,'FontSize',clabelfs,'FontWeight',clabelfw);
+    
+    if (min(min(logsinsq_theta))<s2bound(1))&&...
+       (min(min(logdelta_m2))<dm2bound(1))
+   
+        line([s2bound(1) s2bound(1) s2bound(2) s2bound(2) s2bound(1)],...
+            [dm2bound(1) dm2bound(2) dm2bound(2) dm2bound(1) dm2bound(1)],...
+            'Color','k','LineWidth',1,'LineStyle','--')
+    end
+    if show_POI
+       hold on
+       plot(log10(POI(1)),log10(POI(2)),'Color','r','MarkerSize',15,'Marker','h',...
+           'MarkerEdgeColor','k','MarkerFaceColor','g')
+       hold off
+    end
     if save_plots
         filename = 'deltaNeff.eps';
         save_eps_and_pdf(prefix_filename,imagepath,filename);
@@ -199,17 +345,49 @@ if use_new_calculation
     end
     
     if Show_evolution_of_Neff
+        %---- dm2 fixed ---
         my_figure
-        plotstring3(end) = ')';
+        %plotstring3(end) = ')';
+        plotstring3 = [plotstring3,'lw,2)'];
         eval(plotstring3)
         set(gca,'xdir','reverse');
         my_title(['L = ',num2str(L{1}(1)),' (2)', ' [',hierarchy,']'])
         my_xlabel('T (MeV)')
         my_ylabel('\delta N_{eff}')
-        my_legend(legendcell,'Location','NorthWest')
+        my_legend(legendcell3a,'Location','NorthWest')
         set_gca
         if save_plots
-            filename = 'deltaNeff_evolution.eps';
+            filename = 'deltaNeff_evolution_dm2fixed_OL.eps';
+            save_eps_and_pdf(prefix_filename,imagepath,filename);
+        end
+        my_legend(legendcell3b,'Location','NorthWest')
+        set_gca
+        if save_plots
+            filename = 'deltaNeff_evolution_dm2fixed.eps';
+            save_eps_and_pdf(prefix_filename,imagepath,filename);
+        end
+        if ~view_plots
+            close(gcf)
+        end
+        % --- sinsq fixed ----
+        my_figure
+        %plotstring4(end) = ')';
+        plotstring4 = [plotstring4,'lw,2)'];
+        eval(plotstring4)
+        set(gca,'xdir','reverse');
+        my_title(['L = ',num2str(L{1}(1)),' (2)', ' [',hierarchy,']'])
+        my_xlabel('T (MeV)')
+        my_ylabel('\delta N_{eff}')
+        my_legend(legendcell4a,'Location','NorthWest')
+        set_gca
+        if save_plots
+            filename = 'deltaNeff_evolution_sinsqfixed_OL.eps';
+            save_eps_and_pdf(prefix_filename,imagepath,filename);
+        end
+        my_legend(legendcell4b,'Location','NorthWest')
+        set_gca
+        if save_plots
+            filename = 'deltaNeff_evolution_sinsqfixed.eps';
             save_eps_and_pdf(prefix_filename,imagepath,filename);
         end
         if ~view_plots
@@ -245,6 +423,24 @@ if Show_evolution_of_resonances
     set_gca
     if save_plots
         filename = 'resonance_evolution.eps';
+        save_eps_and_pdf(prefix_filename,imagepath,filename);
+    end
+    if ~view_plots
+        close(gcf)
+    end
+end
+
+if Show_last_T
+    my_figure
+    contourf(logsinsq_theta,logdelta_m2,last_T)
+    my_title(['Temperature in MeV when L->0, L=',num2str(L{1}(1)), ' [',hierarchy,']'])
+    my_xlabel('log_{10}(sin^2(2\theta_0))')
+    my_ylabel('log_{10}(|\delta m^2|)')
+    set_gca
+    my_colorbar
+    set(gca,'clim',[0.98*min(min(last_T)) 1.02*max(max(last_T))])
+    if save_plots
+        filename = 'final_temperature.eps';
         save_eps_and_pdf(prefix_filename,imagepath,filename);
     end
     if ~view_plots
@@ -293,6 +489,8 @@ eps2pdf(filename,...
 
 function my_colorbar
 global axfont axesfs
+cmap = cmrmap(256,5);
+colormap(cmap)
 colorbar('FontName',axfont,'FontWeight','bold','FontSize',axesfs)
 
 function my_legend(leg_cell,varargin)
@@ -306,8 +504,12 @@ function ZI = prepare_contour(X,Y,Z,notconverged,XI,YI)
 global clever_interp
 Zn = Z;
 Zn(notconverged) = nan;
-for i=1:size(notconverged,1)
-    for j=1:size(notconverged,2)
+if (numel(X)==numel(XI))
+    ZI = Zn;
+    return
+end
+for i=1:size(notconverged,2)
+    for j=1:size(notconverged,1)
         if notconverged(j,i)
             if clever_interp
                 if (sum(~isnan(Zn(j,:)))>=2)

@@ -6,12 +6,12 @@ close all;
 %momentum bin of special interest: in [1; vres]
 mbin = 51;
 analytic_static = true;
-Ti_lowtemp = 30;%MeV
+Ti_lowtemp = 6;%MeV
 %filename = 'output/dump.mat';
 %filename = 'd:\Shared\chaos_dat\dump_15_31.mat';
 %filename ='d:\Shared\chaos_dat\loop_line\dump_0_8.mat';
 %filename = 'd:\Shared\lasagna_svn\output\testcase.mat'
-filename = 'd:\Shared\lasagna_svn\output\dump.mat'
+filename = 'd:\Shared\lasagna_svn\output\dump2.mat'
 %filename = 'd:\Shared\lasagna_svn\runlasagna_001_002\dump_001_002.mat'
 
 load(filename)
@@ -46,8 +46,8 @@ mask = ones(1,Tres_vres(2));
 Vx_grid = Vx(mask,:)./x_grid;
 V0_grid = V0(mask,:)./x_grid;
 V1_grid = V1(mask,:).*x_grid;
-Vz_grid = V0_grid+V1_grid+VL(mask,:);
-Vz_bar_grid = V0_grid+V1_grid-VL(mask,:);
+Vz_grid = V0_grid+V1_grid;%+VL(mask,:);
+Vz_bar_grid = V0_grid+V1_grid;%-VL(mask,:);
 
 Gamma_grid = C_alpha*(1.16637e-5)^2*x_grid.*(1e-3*T(mask,:)).^5;
 D_grid = 0.5*Gamma_grid;
@@ -71,7 +71,7 @@ Px_static_minus = Px_static_grid - Px_bar_static_grid;
 
 
 %Low temperature approximation
-idx_Ti=sum(T>Ti_lowtemp);
+idx_Ti=max(1,sum(T>Ti_lowtemp));
 % mask_integral = idx_Ti:last_idx;
 % HT = sqrt(4*pi^3*3.4/45)*T(mask_integral).^3/(1.22e22);
 % HT_grid = HT(mask,:);
@@ -216,7 +216,7 @@ title(['Pz at T=',num2str(T(last_idx)),'MeV. Low temperature evolution imposed a
     num2str(T(idx_Ti)),'MeV']);
 subplot(2,2,2)
 plot(xvec,Pz_bar(:,last_idx),xvec,Pz_bar_lastidx,xvec,Pz_bar_lastidx2)
-title(['Pz at T=',num2str(T(last_idx)),'MeV.']);
+title(['Pz bar at T=',num2str(T(last_idx)),'MeV.']);
 %figure
 %nice_plot(1,1,1,T,vi,last_idx)
 subplot(2,2,3)

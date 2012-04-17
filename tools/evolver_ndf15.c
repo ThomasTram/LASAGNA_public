@@ -716,9 +716,10 @@ for(ii=1;ii<=neq;ii++){
       if ((stepstat[0]>500000000)||
 	  (stop_function(t,y+1,f0+1,parameters_and_workspace_for_derivs,
 			   error_message) == _TRUE_)){      //Stop condition
-	lasagna_call((*output)(t,y+1,f0+1,next,
+	/**lasagna_call((*output)(t,y+1,f0+1,next,
 			       parameters_and_workspace_for_derivs,
 			       error_message),error_message,error_message);
+	*/
 	printf("Stop condition met...\n");
 	break;
       }

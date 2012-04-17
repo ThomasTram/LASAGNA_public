@@ -45,6 +45,8 @@ LASAGNA3 = lasagna3.o
 
 LASAGNA4 = lasagna4.o
 
+LASAGNA5 = lasagna5.o
+
 LASAGNA_LOOP = lasagna_loop.o
 
 QKE_EQUATIONS = qke_equations.o
@@ -71,7 +73,7 @@ C_ALL = $(C_MAIN) $(C_TOOLS) $(C_SOURCE) $(C_TEST)
 H_ALL = $(addprefix include/, common.h $(addsuffix .h, $(basename $(notdir $(C_ALL)))))
 MISC_FILES = make_loop_dir.sh main/prepare_job.c load_and_plot.m lepton_number.m dsdofHP_B.dat parameters.ini Makefile
 
-all: lasagna lasagna2 lasagna3 lasagna4 lasagna_loop extract_matrix
+all: lasagna lasagna2 lasagna3 lasagna4 lasagna5 lasagna_loop extract_matrix
 
 lasagna: $(TOOLS) $(QKE_EQUATIONS) $(BACKGROUND) $(INPUT) $(LASAGNA)
 	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
@@ -83,6 +85,9 @@ lasagna3: $(TOOLS) $(QKE_EQUATIONS) $(BACKGROUND) $(INPUT) $(LASAGNA3)
 	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
 
 lasagna4: $(TOOLS) $(QKE_EQUATIONS) $(BACKGROUND) $(INPUT) $(LASAGNA4)
+	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
+
+lasagna5: $(TOOLS) $(QKE_EQUATIONS) $(BACKGROUND) $(INPUT) $(LASAGNA5)
 	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
 
 lasagna_loop: $(TOOLS) $(QKE_EQUATIONS) $(BACKGROUND) $(LASAGNA_LOOP)
