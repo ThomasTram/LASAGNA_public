@@ -19,7 +19,7 @@ int main(){
   nu=2.0;
   NU = 2;
   x0 = 1.0;
-  xf = 200.0*nu;
+  xf = 50;
   y[0] = jn(NU,x0);
   y[1] = 0.5*(jn(NU-1,x0)-jn(NU+1,x0));
   
@@ -58,23 +58,23 @@ int evolver_ndf15(
 			     ErrorMsg error_message),
 	ErrorMsg error_message);
 
-  evolver_radau5(besderivs,
-		 x0,
-		 xf,
-		 y,
-		 useless,
-		 2,
-		 &nu,
-		 1e-4,
-		 1e-15,
-		 t_vec,
-		 tres,
-		 NULL,
-		 NULL,
-		 besoutput,
-		 NULL,
-		 NULL,
-		 error_message);
+ evolver_rkdp45(besderivs,
+		x0,
+		xf,
+		y,
+		useless,
+		2,
+		&nu,
+		1e-4,
+		1e-15,
+		NULL,//t_vec,
+		30,//tres,
+		NULL,
+		NULL,
+		besoutput,
+		NULL,
+		NULL,
+		error_message);
   return _SUCCESS_;
 }
 
@@ -84,7 +84,7 @@ int besoutput(double t,
 	      int index_t, 
 	      void *param, 
 	      ErrorMsg error_message){
-  fprintf(stderr,"%.12e %.12e %.12e\n",t,y[0],y[1]);
+  fprintf(stderr,"%.16e %.16e %.16e\n",t,y[0],y[1]);
   return _SUCCESS_;
 }
 

@@ -79,7 +79,7 @@ int evolver_radau5(
   int newt_iter, tdir, next, nfenj;
   double abshlast=0.0, absh, abshnew; 
   double theta, theta_k, theta_k_old=1.0, eta=1.0, conv_est, conv_cor;
-  double t, tdel, h, abshmin, rh;
+  double t, ti, tdel, h, abshmin, rh;
   double norm_dW, norm_dW_old=1.0, norm_err;
   double z1,z2,z3,tau;
 
@@ -157,8 +157,11 @@ int evolver_radau5(
   else
     tdir = -1;
 
-  for (next=0; next<tres; next++){
-    if ((t_vec[next]-t_ini)*tdir>0) break;
+  if (t_vec!=NULL){
+    //Output at specified locations
+    for (next=0; next<tres; next++){
+      if ((t_vec[next]-t_ini)*tdir>0) break;
+    }
   }
 
   /*Initialize the jacobian:*/
@@ -500,7 +503,8 @@ int evolver_radau5(
       stepstat[1]++;
       last_failed = _TRUE_;
       absh = max(0.1*absh,abshnew);
-      h = tdir*absh;      if (J_current == _FALSE_){
+      h = tdir*absh;      
+      if (J_current == _FALSE_){
 	//Recalculate jacobian:
 	  nfenj=0;
 	  lasagna_call(numjac((*derivs),
@@ -533,27 +537,45 @@ int evolver_radau5(
       first_step = _FALSE_;
       last_failed = _FALSE_;
       abshlast = absh;
-      //Do output?
-   
-      
-      while((next<tres)&&((t+h-t_vec[next])*tdir >= 0.0)){
+      /**  Output:  */
+      if (t_vec==NULL){
+	//Refinement output:
+	for (i=1; i<=tres; i++){
+	  //Interpolated (and endpoint) outputs:
+	  ti = t+i/((double) tres)*h;
+	  dense_output_radau5(ti,
+			      ytemp,
+			      t,
+			      h,
+			      y0,
+			      Y0pZ,
+			      interpidx,
+			      neq);
+	  lasagna_call((*output)(ti,ytemp,f0,next,
+				 parameters_and_workspace_for_derivs,
+				 error_message),error_message,error_message);
+	}
+      }
+      else{
+	while((next<tres)&&((t+h-t_vec[next])*tdir >= 0.0)){
 	
-	dense_output_radau5(t_vec[next],
-			    ytemp,
-			    t,
-			    h,
-			    y0,
-			    Y0pZ,
-			    interpidx,
-			    neq);
+	  dense_output_radau5(t_vec[next],
+			      ytemp,
+			      t,
+			      h,
+			      y0,
+			      Y0pZ,
+			      interpidx,
+			      neq);
 	
-	//We are not interpolating the derivative at the moment..
-	lasagna_call((*output)(t_vec[next],ytemp,f0,next,
-			       parameters_and_workspace_for_derivs,
-			     error_message),error_message,error_message);
+	  //We are not interpolating the derivative at the moment..
+	  lasagna_call((*output)(t_vec[next],ytemp,f0,next,
+				 parameters_and_workspace_for_derivs,
+				 error_message),error_message,error_message);
 	
-	//printf("%.16e %.16e %.16e\n",t+h,ynew[0],ynew[1]);
-	next++;
+	  //printf("%.16e %.16e %.16e\n",t+h,ynew[0],ynew[1]);
+	  next++;
+	}
       }
       //Update parameters:
       t += h;

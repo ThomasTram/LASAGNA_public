@@ -109,7 +109,7 @@ int evolver_ndf15(
   struct numjac_workspace nj_ws;
 	
   /* Method variables: */
-  double t,t0,tfinal,tnew=0;
+  double t,t0,ti,tfinal,tnew=0;
   double rh,htspan,absh,hmin,hmax,h,tdel;
   double abshlast,hinvGak,minnrm,oldnrm=0.,newnrm;
   double err,hopt,errkm1,hkm1,errit,rate=0.,temp,errkp1,hkp1,maxtmp;
@@ -223,7 +223,11 @@ int evolver_ndf15(
   else{
     tdir = 1;
   }
-  for(next=0; (t_vec[next]-t0)*tdir<0.0; next++);
+
+  if (t_vec!=NULL){
+    //Do output at specified locations
+    for(next=0; (t_vec[next]-t0)*tdir<0.0; next++);
+  }
  	
   if (verbose > 1){
     numidx=0;
@@ -604,28 +608,12 @@ for(ii=1;ii<=neq;ii++){
       }
     }
     /** Output **/
-    while ((next<tres)&&(tdir * (tnew - t_vec[next]) >= 0.0)){
-      /* Do we need to write output? */
-      if (tnew==t_vec[next]){
-	lasagna_call((*output)(t_vec[next],
-			       ynew+1,
-			       f0+1,
-			       next,
-			       parameters_and_workspace_for_derivs,
-			       error_message),
-		     error_message,error_message);
-	if (print_variables != NULL){
-	  lasagna_call((*print_variables)(t_vec[next],
-					  ynew+1,
-					  f0+1,
-					  parameters_and_workspace_for_derivs,
-					  error_message),
-		       error_message,error_message);
-	}
-      }
-      else {
-	/*Interpolate if we have overshot sample values*/
-	interp_from_dif(t_vec[next],
+    if (t_vec==NULL){
+      //Refinement output:
+      for (jj=1; jj<tres; jj++){
+	//Interpolated outputs:
+	ti = tnew-(1.0-jj/((double) tres))*h;
+	interp_from_dif(ti,
 			tnew,
 			ynew,
 			h,
@@ -637,16 +625,65 @@ for(ii=1;ii<=neq;ii++){
 			interpidx,
 			neq,
 			2);				
-	lasagna_call((*output)(t_vec[next],
+	lasagna_call((*output)(ti,
 			       yinterp+1,
 			       ypinterp+1,
-			       next,
+			       jj,
 			       parameters_and_workspace_for_derivs,
 			       error_message),error_message,error_message);
       }
-      next++;	
+      lasagna_call((*output)(tnew,
+			     ynew+1,
+			     f0+1,
+			     tres,
+			     parameters_and_workspace_for_derivs,
+			     error_message),error_message,error_message);
     }
-
+    else{
+      //Output at Tvec grid:
+      while ((next<tres)&&(tdir * (tnew - t_vec[next]) >= 0.0)){
+	/* Do we need to write output? */
+	if (tnew==t_vec[next]){
+	  lasagna_call((*output)(t_vec[next],
+				 ynew+1,
+				 f0+1,
+				 next,
+				 parameters_and_workspace_for_derivs,
+				 error_message),
+		       error_message,error_message);
+	  if (print_variables != NULL){
+	    lasagna_call((*print_variables)(t_vec[next],
+					    ynew+1,
+					    f0+1,
+					    parameters_and_workspace_for_derivs,
+					    error_message),
+			 error_message,error_message);
+	  }
+	}
+	else {
+	  /*Interpolate if we have overshot sample values*/
+	  interp_from_dif(t_vec[next],
+			  tnew,
+			  ynew,
+			  h,
+			  dif,
+			  k,
+			  yinterp,
+			  ypinterp,
+			  yppinterp,
+			  interpidx,
+			  neq,
+			  2);				
+	  lasagna_call((*output)(t_vec[next],
+				 yinterp+1,
+				 ypinterp+1,
+				 next,
+				 parameters_and_workspace_for_derivs,
+				 error_message),error_message,error_message);
+	}
+	next++;	
+      }
+    }
     /** End of output **/
     if (done==_TRUE_) {
       break;
@@ -716,10 +753,9 @@ for(ii=1;ii<=neq;ii++){
       if ((stepstat[0]>500000000)||
 	  (stop_function(t,y+1,f0+1,parameters_and_workspace_for_derivs,
 			   error_message) == _TRUE_)){      //Stop condition
-	/**lasagna_call((*output)(t,y+1,f0+1,next,
+	lasagna_call((*output)(t,y+1,f0+1,next,
 			       parameters_and_workspace_for_derivs,
 			       error_message),error_message,error_message);
-	*/
 	printf("Stop condition met...\n");
 	break;
       }

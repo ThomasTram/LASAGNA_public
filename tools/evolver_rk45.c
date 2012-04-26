@@ -333,7 +333,10 @@ int evolver_rkdp45(
   stats[2]++;
   hmin = 100.0*DBL_MIN*fabs(t);
   hmax = fabs(t_final-t_ini)/10.0;
-  absh = min(hmax,fabs(t_vec[1]-t_vec[0]));
+  if (t_vec!=NULL)
+    absh = min(hmax,fabs(t_vec[1]-t_vec[0]));
+  else
+    absh = hmax;
   if (absh==0.0)
     absh = hmax;
   //Compute h_initial:
@@ -351,7 +354,10 @@ int evolver_rkdp45(
   hnew = absh*tdir;
   h = hnew;
   //Find current index:
-  for(idx = 0; (t_vec[idx]-t)*tdir<0.0; idx++);
+  if (t_vec != NULL){
+    //Output at specified points.
+    for(idx = 0; (t_vec[idx]-t)*tdir<0.0; idx++);
+  }
   nofailed = _TRUE_;
   
   while ((t-t_final)*tdir<0.0){
@@ -433,14 +439,10 @@ int evolver_rkdp45(
 	hnew = tdir*max(hmin, fabs(h) * max(0.1, 0.8*pow(rtol/errmax,pow_grow)));
       tnew = t+h;
       //Do we need to write output?
-      for(; (idx<tres)&&((tnew-t_vec[idx])*tdir>=0.0); idx++){
-	if (tnew==t_vec[idx]){
-	  //We have hit the point exactly. Use ynew and dy=ki+6*neq
-	  output(tnew,ynew,ki+6*neq,idx,ppaw, error_message);
-	}
-	else{
-	  //Interpolate to get output using the information in the ki-matrix:
-	  ti = t_vec[idx];
+      if (t_vec==NULL){
+	//Refined output
+	for (idx=1; idx<tres; idx++){
+	  ti = t+idx/((double) tres)*h;
 	  ss1 = (ti-t)/h; ss2=ss1*ss1; ss3=ss2*ss1; ss4=ss2*ss2;
 	  bi_vec_y[0] = ss1+i01*ss2+i02*ss3+i03*ss4;
 	  bi_vec_dy[0] = 1.0+i01*2.0*ss1+i02*3.0*ss2+i03*4.0*ss3;
@@ -464,11 +466,45 @@ int evolver_rkdp45(
 	  }
 	  output(ti,yinterp,dyinterp,idx,ppaw, error_message);
 	}
+	output(tnew,ynew,ki+6*neq,tres,ppaw, error_message);
+      }
+      else{
+	for(; (idx<tres)&&((tnew-t_vec[idx])*tdir>=0.0); idx++){
+	  if (tnew==t_vec[idx]){
+	    //We have hit the point exactly. Use ynew and dy=ki+6*neq
+	    output(tnew,ynew,ki+6*neq,idx,ppaw, error_message);
+	  }
+	  else{
+	    //Interpolate to get output using the information in the ki-matrix:
+	    ti = t_vec[idx];
+	    ss1 = (ti-t)/h; ss2=ss1*ss1; ss3=ss2*ss1; ss4=ss2*ss2;
+	    bi_vec_y[0] = ss1+i01*ss2+i02*ss3+i03*ss4;
+	    bi_vec_dy[0] = 1.0+i01*2.0*ss1+i02*3.0*ss2+i03*4.0*ss3;
+	    //bi_vec_y[1] = 0.0; bi_vec_dy[1] = 0.0;
+	    for (i=2; i<7; i++){
+	      bi_vec_y[i] = ixx[i-2][0]*ss2+ixx[i-2][1]*ss3+ixx[i-2][2]*ss4;
+	      bi_vec_dy[i] = ixx[i-2][0]*2*ss1+ixx[i-2][1]*3*ss2+ixx[i-2][2]*4*ss3;
+	    }
+	    for (k=0; k<neq; k++){
+	      if (used_in_output[k] == _TRUE_){
+		//Interpolate
+		yinterp[k] = y_inout[k];
+		dyinterp[k] = 0.0;
+		for (i=0; i<7; i++){
+		  if (i!=1){
+		    yinterp[k] +=h*bi_vec_y[i]*ki[i*neq+k];
+		    dyinterp[k] +=bi_vec_dy[i]*ki[i*neq+k];
+		  }
+		}
+	      }
+	    }
+	    output(ti,yinterp,dyinterp,idx,ppaw, error_message);
+	  }
+	}
       }
       /* Perhaps use stop function: */
       if (stop_function != NULL){
-	if ((stats[0]>5000000)||
-	    stop_function(tnew,ynew,ki+6*neq, ppaw, error_message) == _TRUE_){      
+	if (stop_function(tnew,ynew,ki+6*neq, ppaw, error_message)==_TRUE_){
 	  output(tnew,ynew,ki+6*neq,idx,ppaw, error_message);
 	  printf("Stop condition met...\n");
 	  break;
