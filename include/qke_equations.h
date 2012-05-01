@@ -110,6 +110,7 @@ typedef struct qke_param_structure{
   double V0;
   double V1;
   double VL;
+  double g_alpha; //1 for muon/tau, 1+4sec²(theta_w)/n_plus for e.
   double L_fudge;
   int Pa_plus_handle; //Position of given matrix in output file
   int Pa_minus_handle; //Position of given matrix in output file
@@ -287,6 +288,24 @@ extern "C" {
 				     ErrorMsg error_message);
   
   //Misc.:
+  int get_resonances_xi2(double T, 
+			 double L,
+			 qke_param *pqke);
+  int get_resonances_dxidT(double T, 
+			   double L,
+			   double dLdT,
+			   qke_param *pqke);
+  int get_integrated_quantities(double *y,
+				qke_param *pqke,
+				double *I_VxPy_minus,
+				double *I_f0Pa_plus,
+				ErrorMsg error_message);
+  int get_parametrisation(double T,qke_param *pqke, ErrorMsg error_message);
+  int get_partial_derivatives(double T,
+			      double L,
+			      double dLdT,
+			      qke_param *pqke, 
+			      ErrorMsg error_message);
   double dif_L_from_exact(double T, 
 			  double *y,
 			  double L_in,

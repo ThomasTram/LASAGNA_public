@@ -7,12 +7,7 @@ close all;
 mbin = 51;
 analytic_static = true;
 Ti_lowtemp = 6;%MeV
-%filename = 'output/dump.mat';
-%filename = 'd:\Shared\chaos_dat\dump_15_31.mat';
-%filename ='d:\Shared\chaos_dat\loop_line\dump_0_8.mat';
-%filename = 'd:\Shared\lasagna_svn\output\testcase.mat'
-filename = 'd:\Shared\lasagna_svn\output\dump2.mat'
-%filename = 'd:\Shared\lasagna_svn\runlasagna_001_002\dump_001_002.mat'
+filename = 'output/dump.mat';
 
 load(filename)
 S = load(filename);

@@ -585,7 +585,7 @@ int free_qke_param(qke_param *pqke){
 int get_resonances_xi(double T, double L, qke_param *param){
 	double phi,chi;
 	double *xi=param->xi;
-	double *dxidT = param->dxidT;
+	double *dxidT=param->dxidT;
 	double frac;
 	int i;
 
@@ -634,12 +634,91 @@ int get_resonances_xi(double T, double L, qke_param *param){
 	return _SUCCESS_;
 };
 
+int get_resonances_xi2(double T, 
+		       double L,
+		       qke_param *pqke){
+  double *xi=pqke->xi;
+  double x0, A;
+  int i;
+
+  x0 = sqrt(fabs(pqke->V0/pqke->V1));  
+  xi[0] = x0;
+  xi[1] = x0;
+  A = fabs(0.5*pqke->VL/sqrt(fabs(pqke->V0*pqke->V1)));
+  if (pqke->delta_m2<0.0){
+    //Case of inverted Hierarchy
+    xi[0] *= -A+sqrt(1.0+A*A);
+    xi[1] *=  A+sqrt(1.0+A*A);
+  }
+  else{
+    //Case of normal hierarchy:
+    if (A>1.0){
+      xi[0] *=A-sqrt(A*A-1.0);
+      xi[1] *=A+sqrt(A*A-1.0);
+    }
+  }
+  // Protect against possible seg fault:
+  for (i=0; i<pqke->Nres; i++){
+    if(xi[i]>pqke->xmax){
+      xi[i] = pqke->xmax;
+    }
+  }
+  return _SUCCESS_;
+};
+
+int get_resonances_dxidT(double T, 
+			 double L,
+			 double dLdT,
+			 qke_param *pqke){
+  double x0, A,A2;
+  double *dxidT=pqke->dxidT;
+  double F;
+  double one_plus_dlogLdlogT;
+
+  x0 = sqrt(fabs(pqke->V0/pqke->V1));  
+  dxidT[0] = -3.0*x0/T;
+  dxidT[1] = -3.0*x0/T;
+
+  if (fabs(L)<1e-100){
+    return _SUCCESS_;
+  }
+
+  A = fabs(0.5*pqke->VL/sqrt(pqke->V0*pqke->V1));
+  A2 = A*A;
+  one_plus_dlogLdlogT = 1.0+T/L*dLdT;
+
+  if (pqke->delta_m2<0.0){
+    //Case of inverted Hierarchy
+    F = -A+sqrt(1.0+A2);
+    dxidT[0] *= F-A/3.0*one_plus_dlogLdlogT*(-1.0+pow(1.0+1.0/A2,-0.5));
+    F = A+sqrt(1.0+A2);
+    dxidT[1] *= F-A/3.0*one_plus_dlogLdlogT*(1.0+pow(1.0+1.0/A2,-0.5));
+  }
+  else{
+    //Case of normal hierarchy:
+    if (A>1.0){
+      F = A+sqrt(A2-1.0);
+      dxidT[0] *= F-A/3.0*one_plus_dlogLdlogT*(1.0+pow(1.0-1.0/A2,-0.5));
+      F = A-sqrt(A2-1.0);
+      dxidT[1] *= F-A/3.0*one_plus_dlogLdlogT*(1.0-pow(1.0-1.0/A2,-0.5)); 
+    }
+  }
+  return _SUCCESS_;
+};
+
 
 int u_of_x(double x, double *u, double *dudx, qke_param *param){
   double x_plus_xext;
   x_plus_xext = x+param->xext;
   *u = (x*(1.0+param->eps2)-param->xext*param->eps1)/x_plus_xext;
   *dudx = param->xext*(1+param->eps1+param->eps2)/x_plus_xext/x_plus_xext;
+  return _SUCCESS_;
+};
+
+int u_of_x2(double x, double *u, qke_param *param){
+  double x_plus_xext;
+  x_plus_xext = x+param->xext;
+  *u = (x*(1.0+param->eps2)-param->xext*param->eps1)/x_plus_xext;
   return _SUCCESS_;
 };
 
@@ -2079,115 +2158,147 @@ int qke_print_variables_fixed_grid_standard_approx2(double T,
   return _SUCCESS_;
 };
 
+int get_integrated_quantities(double *y,
+			      qke_param *pqke,
+			      double *I_VxPy_minus,
+			      double *I_f0Pa_plus,
+			      ErrorMsg error_message){
+  int i;
+  double w_trapz, x, x2, f0, Vx;
+  double Py_minus, Pa_plus;
+			      
+  /** Integrated quantities needed. We integrate in x space: */
+  *I_VxPy_minus = 0.0;
+  *I_f0Pa_plus = 0.0;
+  for (i=0; i<pqke->vres; i++){
+    if (i==0)
+      w_trapz = 0.5*(pqke->x_grid[i+1]-pqke->x_grid[i]);
+    else if (i==pqke->vres-1)
+      w_trapz = 0.5*(pqke->x_grid[i]-pqke->x_grid[i-1]);
+    else
+      w_trapz = 0.5*(pqke->x_grid[i+1]-pqke->x_grid[i-1]);
+    x = pqke->x_grid[i];
+    x2 = x*x;
+    f0 = 1.0/(1.0+exp(x));
+    Vx = pqke->Vx/x;
+    Py_minus = y[pqke->index_Py_minus+i];
+    Pa_plus = y[pqke->index_Pa_plus+i];
+      
+    *I_VxPy_minus += w_trapz*(x2*f0*Vx*Py_minus);
+    *I_f0Pa_plus += w_trapz*(x2*f0*Pa_plus);
+  }
+  return _SUCCESS_;
+}
 
-int qke_derivs(double T, 
-	       double *y, 
-	       double *dy, 
-	       void *param,
-	       ErrorMsg error_message){
-  qke_param *pqke=param;
-  double L;
-  int i,j,niter;
-  double *y_0 = pqke->y_0;
-  double *maxstep=pqke->maxstep;
-  double *duidT=pqke->duidT;
-  double *dvidT=pqke->dvidT;
-  double *duidx=pqke->duidx;
+int get_parametrisation(double T,qke_param *pqke, ErrorMsg error_message){
+  double alpha=pqke->alpha;
+  double maxstep[3];
+  double y_0[3];
   double *ui=pqke->ui;
   double *vi=pqke->vi;
+  double *x_grid=pqke->x_grid;
   double *u_grid=pqke->u_grid;
   double *v_grid=pqke->v_grid;
-  double *x_grid=pqke->x_grid;
+  double tol_newton=1e-12;
+  double wi;
+  int i,j;
+  int niter;
+
+  for (i=0; i<pqke->Nres; i++){
+    u_of_x(pqke->xi[i],ui+i,pqke->duidx+i,pqke);
+  }
+  
+  //Establish guess and set maximum steps for Newton method:
+  if (T==pqke->T_initial){
+    y_0[0] = 1.0 - alpha;
+    maxstep[0] = 100.0;
+    for (i=1; i<=pqke->Nres; i++){
+      y_0[i] = ui[i-1];
+      maxstep[i] = 0.1;
+    }
+  }
+  else{
+    //We can make a more realistic guess:
+    y_0[0] = pqke->b;
+    maxstep[0] = 100.0;
+    for (i=1; i<=pqke->Nres; i++){
+      y_0[i] = vi[i-1];
+      maxstep[i] = 0.1;
+    }
+  }
+  //Find parametrisation parameters vi, a and b using Newton:
+  lasagna_call(Newton(nonlinear_rhs,
+		      nonlinear_rhs_jac,
+		      y_0,
+		      pqke,
+		      maxstep,
+		      tol_newton,
+		      &niter,
+		      100,
+		      pqke->Nres+1,
+		      error_message),
+	       error_message,error_message);
+    
+  pqke->b = y_0[0];
+  for (i=0; i<pqke->Nres; i++){
+    vi[i] = y_0[i+1];
+    pqke->a[i] = ui[i]-alpha*vi[i];
+  }
+
+  //Now update grids:
+  /** Find the splitting of v and store it temporarily in pqke->indx.
+      We use the fact that v is uniform.
+  */
+  pqke->indx[0] = 0;
+  pqke->indx[pqke->Nres] = pqke->vres;
+  for (i=1; i<pqke->Nres; i++){
+    wi = 0.5*(vi[i-1]+vi[i]); //Weighted average
+    pqke->indx[i] = (int)((wi-pqke->v_left)/(v_grid[1]-v_grid[0]));
+    if (pqke->indx[i]<pqke->indx[i-1])
+      pqke->indx[i] = pqke->indx[i-1];
+  }
+  // Now loop over resonances:
+  for (i=0; i<pqke->Nres; i++){
+    if (pqke->indx[i]==pqke->indx[i+1])
+      continue;
+    //Loop over each segment:
+    for (j=pqke->indx[i]; j<pqke->indx[i+1]; j++){
+      u_grid[j] = alpha*v_grid[j]+pqke->a[i]+pqke->b*pow(v_grid[j]-vi[i],3);
+      x_of_u(u_grid[j],&(x_grid[j]),pqke);
+    }
+  }
+
+  return _SUCCESS_;
+}
+
+int get_partial_derivatives(double T,
+			    double L,
+			    double dLdT,
+			    qke_param *pqke, 
+			    ErrorMsg error_message){
+  int i,j;
+  double u1, v1, vN;
+  double gamma_j, beta_j, wi;
+  double alpha=pqke->alpha;
+  double *dvidT=pqke->dvidT;
+  double *duidT=pqke->duidT;
+  double *v_grid=pqke->v_grid;
+  double *ui=pqke->ui;
+  double *vi=pqke->vi;
   double *dvdu_grid=pqke->dvdu_grid;
   double *dudT_grid=pqke->dudT_grid;
-  double tol_newton = 1e-12;
-  double vN,u1,v1,alpha,wi;
-  double gentr,H;
+  double dbdT,daidT;
   double lu_sgn;
-  double daidT,dbdT;
-  double Vx, VL;
-  double x, w_trapz;
-  double Gamma, D, V0, V1, Pa_plus, Pa_minus, Ps_plus, Ps_minus;
-  double Px_plus, Px_minus, Py_plus, Py_minus, f0,  mu_div_T;
-  double PsPs,I_rho_ss, feq_plus, feq_minus, I_VxPy_minus, I_f0Pa_plus;
-  double dudTdvdu, delta_v;
-  double rs;
-  double gamma_j, beta_j;
-  int idx, stencil_method;
 
-  alpha = pqke->alpha;
-  L = y[pqke->index_L]*_L_SCALE_;
-  get_resonances_xi(T,L,pqke);
-  for (i=0; i<pqke->Nres; i++){
-    u_of_x(pqke->xi[i],pqke->ui+i,duidx+i,pqke);
-  }
+/** Get partial derivatives of vi with respect to T by solving a 
+      linear system A*dvidT = B(duidT):
+  */
+  get_resonances_dxidT(T,L,dLdT,pqke);
+
   //Set partial derivatives of ui with respect to T:
   for (i=0; i<pqke->Nres; i++) 
     pqke->duidT[i]=pqke->duidx[i]*pqke->dxidT[i];
 
-
-  /**
-     Do we evolve the parametrisation parameters b and vi or
-     do we use Newtons method?
-  */
-  if (pqke->evolve_vi == _FALSE_){
-    //Establish guess and set maximum steps for Newton method:
-    if (T==pqke->T_initial){
-      y_0[0] = 1.0 - alpha;
-      maxstep[0] = 100.0;
-      for (i=1; i<=pqke->Nres; i++){
-	y_0[i] = ui[i-1];
-	maxstep[i] = 0.1;
-      }
-    }
-    else{
-      //We can make a more realistic guess:
-      y_0[0] = pqke->b;
-      maxstep[0] = 100.0;
-      for (i=1; i<=pqke->Nres; i++){
-	y_0[i] = vi[i-1];
-	maxstep[i] = 0.1;
-      }
-    }
-    //Find parametrisation parameters vi, a and b using Newton:
-    lasagna_call(Newton(nonlinear_rhs,
-			nonlinear_rhs_jac,
-			y_0,
-			pqke,
-			maxstep,
-			tol_newton,
-			&niter,
-			100,
-			pqke->Nres+1,
-			error_message),
-		 error_message,error_message);
-    
-    pqke->b = y_0[0];
-    for (i=0; i<pqke->Nres; i++)
-      vi[i] = y_0[i+1];
-  }
-  else{
-    //Enter vi and b from the solution vector:
-    //pqke->b = y[pqke->index_b];
-    for (i=0; i<pqke->Nres; i++)
-      vi[i] = y[pqke->index_vi+i];
-    pqke->b = ui[0]/pow(vi[0],3)-alpha/pow(vi[0],2);
-  }
-
-  //Set remaining values of the parametrisation:
-  for (i=0; i<pqke->Nres; i++)
-    pqke->a[i] = ui[i]-alpha*vi[i];
-
-  //Get degrees of freedom from background:
-  background_getdof(T,NULL,&gentr,&(pqke->pbs));
-  /** Use Friedmann equation in radiation dominated universe: 
-      (The radiation approximation breaks down long before there 
-      is a difference in g and gS) */
-  H = sqrt(8.0*pow(_PI_,3)*gentr/90.0)*T*T/_M_PL_;
-
-  /** Get partial derivatives of vi with respect to T by solving a 
-      linear system A*dvidT = B(duidT):
-  */
   for(j=0; j<pqke->Nres; j++){
     for(i=0; i<pqke->Nres; i++){
         pqke->mat[j+1][i+1] = 0.0;
@@ -2238,68 +2349,107 @@ int qke_derivs(double T,
     //Loop over each segment:
     for (j=pqke->indx[i]; j<pqke->indx[i+1]; j++){
       daidT = duidT[i]-alpha*dvidT[i];
-      u_grid[j] = alpha*v_grid[j]+pqke->a[i]+pqke->b*pow(v_grid[j]-vi[i],3);
-      x_of_u(u_grid[j],&(x_grid[j]),pqke);
       dvdu_grid[j] = 1.0/(alpha+3.0*pqke->b*pow(v_grid[j]-vi[i],2));
       dudT_grid[j] = daidT+dbdT*pow(v_grid[j]-vi[i],3)-
 	3.0*pqke->b*pow(v_grid[j]-vi[i],2);
     }
   }
-  
-  /** Done calculating coordinate transformations, now we can 
-      calculate the RHS of the ODE: */
+return _SUCCESS_;
+}
 
+
+int qke_derivs(double T, 
+	       double *y, 
+	       double *dy, 
+	       void *param,
+	       ErrorMsg error_message){
+  qke_param *pqke=param;
+  double L;
+  int i,j,niter;
+  double *y_0 = pqke->y_0;
+  double *maxstep=pqke->maxstep;
+  double *duidT=pqke->duidT;
+  double *dvidT=pqke->dvidT;
+  double *duidx=pqke->duidx;
+  double *ui=pqke->ui;
+  double *vi=pqke->vi;
+  double *u_grid=pqke->u_grid;
+  double *v_grid=pqke->v_grid;
+  double *x_grid=pqke->x_grid;
+  double *dvdu_grid=pqke->dvdu_grid;
+  double *dudT_grid=pqke->dudT_grid;
+  double tol_newton = 1e-12;
+  double vN,u1,v1,alpha,wi;
+  double gentr,H;
+  double lu_sgn;
+  double daidT,dbdT;
+  double Vx, VL;
+  double x, w_trapz;
+  double Gamma, D, V0, V1, Pa_plus, Pa_minus, Ps_plus, Ps_minus;
+  double Px_plus, Px_minus, Py_plus, Py_minus, f0,  mu_div_T;
+  double PsPs,I_rho_ss, feq_plus, feq_minus, I_VxPy_minus, I_f0Pa_plus;
+  double dudTdvdu, delta_v;
+  double rs;
+  double gamma_j, beta_j;
+  int idx, stencil_method;
+  double n_plus = 2.0;
+  double dLdT;
+
+  alpha = pqke->alpha;
+  if (pqke->is_electron==_TRUE_)
+    pqke->g_alpha = 1.0+4.0/((1.0-_SIN2_THETA_W_)*n_plus);
+  else
+    pqke->g_alpha = 1.0;
+  
+  L = y[pqke->index_L]*_L_SCALE_;
+  
   /** Calculate 'scalar' potentials Vx, V0, VL
       (not momentum dependent): */
   pqke->VL = sqrt(2.0)*_G_F_*2.0*_ZETA3_*pow(T,3)/_PI_/_PI_*L;
   VL = pqke->VL;
   pqke->Vx = pqke->delta_m2/(2.0*T)*sin(2.0*pqke->theta_zero);
   pqke->V0 = -pqke->delta_m2/(2.0*T)*cos(2.0*pqke->theta_zero);
+  pqke->V1 = -7.0*_PI_*_PI_/(45.0*sqrt(2.0))*
+    _G_F_/_M_Z_/_M_Z_*pow(T,5)*n_plus*pqke->g_alpha;
+
+  get_resonances_xi2(T,L,pqke);
+
+  //Get new x_grid
+  lasagna_call(get_parametrisation(T,
+				   pqke, 
+				   error_message),
+	       error_message,error_message);
   
-  /** Integrated quantities needed. We integrate in x space: */
-  I_VxPy_minus = 0.0;
-  I_f0Pa_plus = 0.0;
-  I_rho_ss = 0.0;
-  for (i=0; i<pqke->vres; i++){
-    if (i==0)
-      w_trapz = 0.5*(pqke->x_grid[i+1]-pqke->x_grid[i]);
-    else if (i==pqke->vres-1)
-      w_trapz = 0.5*(pqke->x_grid[i]-pqke->x_grid[i-1]);
-    else
-      w_trapz = 0.5*(pqke->x_grid[i+1]-pqke->x_grid[i-1]);
-    x = pqke->x_grid[i];
-    f0 = 1.0/(1.0+exp(x));
-    Vx = pqke->Vx/x;
-    Py_minus = y[pqke->index_Py_minus+i];
-    Pa_plus = y[pqke->index_Pa_plus+i];
-    PsPs = y[pqke->index_Ps_plus+i]+y[pqke->index_Ps_minus+i];
-    
-    I_VxPy_minus += w_trapz*(x*x*Vx*Py_minus*f0);
-    I_f0Pa_plus += w_trapz*(x*x*f0*Pa_plus);
-    I_rho_ss += w_trapz*(x*x*f0*PsPs);
-  }
-  //Set V1:
-  if (pqke->is_electron == _TRUE_){
-    pqke->V1 = -14.0*sqrt(2.0)*_PI_*_PI_/45.0*_G_F_/_M_W_/_M_W_*pow(T,5)*
-      (1.0+1.0/(12.0*_ZETA3_)*(1.0-_SIN2_THETA_W_)*I_f0Pa_plus);
-  }
-  else{
-    pqke->V1 = -7.0*_PI_*_PI_/(135.0*sqrt(2.0)*_ZETA3_)*
-      _G_F_/_M_Z_/_M_Z_*pow(T,5)*I_f0Pa_plus;
-  }
 
+  //Get integrated quantities
+  lasagna_call(get_integrated_quantities(y,
+					 pqke,
+					 &I_VxPy_minus,
+					 &I_f0Pa_plus,
+					 error_message),
+	       error_message,error_message);
+
+  dLdT = -1.0/(8.0*H*T*_ZETA3_)*I_VxPy_minus;
+  
+  //Get partial derivatives:
+  lasagna_call(get_partial_derivatives(T,
+				       L,
+				       dLdT,
+				       pqke, error_message),
+	       error_message,error_message);
+
+
+  //Get degrees of freedom from background:
+  background_getdof(T,NULL,&gentr,&(pqke->pbs));
+  /** Use Friedmann equation in radiation dominated universe: 
+      (The radiation approximation breaks down long before there 
+      is a difference in g and gS) */  
+  H = sqrt(8.0*pow(_PI_,3)*gentr/90.0)*T*T/_M_PL_;
+
+  
   /** Calculate RHS: */
-  dy[pqke->index_L] = 0.0;
-  //dy[pqke->index_L] = -1.0/(8.0*H*T*_ZETA3_)*I_VxPy_minus/_L_SCALE_;
+  dy[pqke->index_L] = dLdT/_L_SCALE_;
   /** All quantities defined on the grid: */
-
-  // Set perhaps flow of grid:
-  if (pqke->evolve_vi == _TRUE_){
-    //dy[pqke->index_b] = dbdT;
-    for (i=0; i<pqke->Nres; i++){
-      dy[pqke->index_vi+i] = dvidT[i];
-    }
-  }
 
   delta_v = v_grid[1]-v_grid[0];
   for (i=0; i<pqke->vres; i++){
@@ -2322,8 +2472,7 @@ int qke_derivs(double T,
     //Solving mu from L, using the chebyshev cubic root:
     mu_div_T = -2*_PI_/sqrt(3.0)*
       sinh(1.0/3.0*asinh(-18.0*sqrt(3.0)*_ZETA3_*L/pow(_PI_,3)));
-    //Regulator for sterile population:
-    rs = pqke->rs;
+
     //Distributions:
     feq_plus = 1.0/(1.0+exp(x-mu_div_T))+1.0/(1.0+exp(x+mu_div_T));
     feq_minus = 1.0/(1.0+exp(x-mu_div_T))-1.0/(1.0+exp(x+mu_div_T));
@@ -2351,12 +2500,11 @@ int qke_derivs(double T,
       dudTdvdu*drhodv(y, delta_v, idx, stencil_method);
 
     idx = pqke->index_Ps_plus+i;
-    dy[idx] = 1.0/(H*T)*
-      (Vx*Py_plus-rs*Gamma*(1.0/(6.0*_ZETA3_)*I_rho_ss*feq_plus-0.5*f0*Ps_plus))+     dudTdvdu*drhodv(y, delta_v, idx, stencil_method);
+    dy[idx] = 1.0/(H*T)*(Vx*Py_plus-0.5*f0*Ps_plus)+
+      dudTdvdu*drhodv(y, delta_v, idx, stencil_method);
     
     idx = pqke->index_Ps_minus+i;
-    dy[idx] = 1.0/(H*T)*
-      (Vx*Py_minus-rs*Gamma*f0*(1.0-0.5*(Pa_minus+Ps_minus)))+
+    dy[idx] = 1.0/(H*T)*Vx*Py_minus+
       dudTdvdu*drhodv(y, delta_v, idx, stencil_method);
     
     idx = pqke->index_Px_plus+i;

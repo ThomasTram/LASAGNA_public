@@ -18,12 +18,12 @@ vpath .base build
 CC = gcc
 #CC = icc
 
-#CCFLAG   = -O0 -Wall -ggdb -g
-#LDFLAG   = -O0 -Wall -ggdb -g
+CCFLAG   = -O0 -Wall -ggdb -g
+LDFLAG   = -O0 -Wall -ggdb -g
 #CCFLAG   = -O4 -Wall -g --fast-math
 #LDFLAG   = -O4 -Wall -g --fast-math
-CCFLAG   = -O2 -g
-LDFLAG   = -O2 -g
+#CCFLAG   = -O2 -g
+#LDFLAG   = -O2 -g
 #CCFLAG   = -fast -w2
 #LDFLAG   = -fast -w2
 #CCFLAG   = -complex-limited-range -g -O3 -B/usr/lib/i386-linux-gnu -I/usr/include/i386-linux-gnu
@@ -73,7 +73,7 @@ C_ALL = $(C_MAIN) $(C_TOOLS) $(C_SOURCE) $(C_TEST)
 H_ALL = $(addprefix include/, common.h $(addsuffix .h, $(basename $(notdir $(C_ALL)))))
 MISC_FILES = make_loop_dir.sh main/prepare_job.c load_and_plot.m lepton_number.m dsdofHP_B.dat parameters.ini Makefile
 
-all: lasagna lasagna2 lasagna3 lasagna4 lasagna5 lasagna_loop extract_matrix
+all: lasagna lasagna2 extract_matrix
 
 lasagna: $(TOOLS) $(QKE_EQUATIONS) $(BACKGROUND) $(INPUT) $(LASAGNA)
 	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
