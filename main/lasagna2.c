@@ -50,8 +50,6 @@ int main(int argc, char **argv) {
   
   qke_init_output(&qke_struct);
 
-  qke_struct.L_decay_trigger = _FALSE_;
-
   printf("is_electron = %d. _TRUE_=%d\n",qke_struct.is_electron,_TRUE_);
   start = clock();  
   func_return = generic_evolver(qke_derivs_fixed_grid,

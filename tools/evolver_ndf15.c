@@ -1082,7 +1082,7 @@ int lubksb(double **a, int n, int *indx, double b[]){
   double sum;
   for (i=1;i<=n;i++) {
     ip=indx[i];
-    if((ip<1)||(ip>n)) printf("WTFWTFWTF!!! i=%d, n=%d.\n",ip,n);
+    if((ip<1)||(ip>n)) printf("Error in LU backsubstitution. (index is %d, n=%d)\n",ip,n);
     sum=b[ip];
     b[ip]=b[i];
     if (ii) for (j=ii;j<=i-1;j++) sum -= a[i][j]*b[j];

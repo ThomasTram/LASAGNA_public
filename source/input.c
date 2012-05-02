@@ -45,7 +45,6 @@ int input_init(struct file_content *pfc,
   lasagna_read_double("xext",pqke->xext);
   lasagna_read_double("xmin",pqke->xmin);
   lasagna_read_double("xmax",pqke->xmax);
-  lasagna_read_int("evolve_vi",pqke->evolve_vi);	
   lasagna_read_int("evolver",pqke->evolver);	
   lasagna_read_double("T_initial",pqke->T_initial);
   lasagna_read_double("T_final",pqke->T_final);
@@ -56,7 +55,6 @@ int input_init(struct file_content *pfc,
   lasagna_read_double("rtol",pqke->rtol);
   lasagna_read_double("abstol",pqke->abstol);
   lasagna_read_string("output_filename",pqke->output_filename);
-  lasagna_read_double("rs",pqke->rs);
   lasagna_read_double("alpha",pqke->alpha);
   lasagna_read_double("L_initial",pqke->L_initial);
   lasagna_read_double("L_final",pqke->L_final);
@@ -85,7 +83,6 @@ int input_default_params(qke_param *pqke){
   pqke->xext = 3.1;
   pqke->xmin =  0.0001;// 0.0001; //1e-4;
   pqke->xmax = 100.0; //100.0;
-  pqke->evolve_vi = _FALSE_;
   pqke->evolver = 0;
   pqke->Nres = 2;
   pqke->T_initial = 0.040;
@@ -100,7 +97,6 @@ int input_default_params(qke_param *pqke){
       solving for dvidT becomes singular.
   */
   pqke->alpha = 0.2;
-  pqke->rs = 0.0;
   pqke->L_initial = 2e-10;
   pqke->L_final = 5e-5;
   pqke->delta_m2 = -1e-17; //-10e-18;

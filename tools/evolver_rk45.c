@@ -328,6 +328,7 @@ int evolver_rkdp45(
   */
 
   t = t_ini;
+
   //initialise ki
   derivs(t,y_inout,ki,ppaw, error_message);
   stats[2]++;

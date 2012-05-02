@@ -60,17 +60,12 @@ int Newton(int (*vecfun)(double * y, double * Fy, void *param),
 	mdelta_y[i+1] = max(mdelta_y[i+1],-maxstep[i]);
       }
     }
+    reldif = 0.0;
     for (i=0; i<neq; i++){
       y0[i] -= mdelta_y[i+1];
-      reldif = fabs(mdelta_y[i+1]/(y0[i]+DBL_MIN));
-      if ((reldif>rtol)&&(fabs(mdelta_y[i+1]>abstol))){
-	converged = _FALSE_;
-	err_idx=i;
-	/**printf("iter = %d, error = %g. yi=%g, dyi=%g.\n",*iter,
-	   fabs(mdelta_y[i+1]/y0[i]),-mdelta_y[i+1],y0[i]);*/
-      }
+      reldif = max(reldif,fabs(mdelta_y[i+1]/(y0[i]+DBL_MIN)));
     }
-    if (converged == _TRUE_)
+    if (reldif<rtol)
       break;
   }
   free(Fval);

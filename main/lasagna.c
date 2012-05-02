@@ -47,7 +47,8 @@ int main(int argc, char **argv) {
   qke_initial_conditions(qke_struct.T_initial, 
 			 y_inout, 
 			 &qke_struct);
-  
+
+
   qke_init_output(&qke_struct);
 
   start = clock();  

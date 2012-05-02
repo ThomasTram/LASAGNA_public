@@ -18,12 +18,12 @@ vpath .base build
 CC = gcc
 #CC = icc
 
-CCFLAG   = -O0 -Wall -ggdb -g
-LDFLAG   = -O0 -Wall -ggdb -g
+#CCFLAG   = -O0 -Wall -ggdb -g
+#LDFLAG   = -O0 -Wall -ggdb -g
 #CCFLAG   = -O4 -Wall -g --fast-math
 #LDFLAG   = -O4 -Wall -g --fast-math
-#CCFLAG   = -O2 -g
-#LDFLAG   = -O2 -g
+CCFLAG   = -O2 -g
+LDFLAG   = -O2 -g
 #CCFLAG   = -fast -w2
 #LDFLAG   = -fast -w2
 #CCFLAG   = -complex-limited-range -g -O3 -B/usr/lib/i386-linux-gnu -I/usr/include/i386-linux-gnu
@@ -40,14 +40,6 @@ TOOLS = newton.o evolver_ndf15.o sparse.o arrays.o evolver_rk45.o evolver_radau5
 LASAGNA = lasagna.o
 
 LASAGNA2 = lasagna2.o
-
-LASAGNA3 = lasagna3.o
-
-LASAGNA4 = lasagna4.o
-
-LASAGNA5 = lasagna5.o
-
-LASAGNA_LOOP = lasagna_loop.o
 
 QKE_EQUATIONS = qke_equations.o
 
@@ -81,18 +73,6 @@ lasagna: $(TOOLS) $(QKE_EQUATIONS) $(BACKGROUND) $(INPUT) $(LASAGNA)
 lasagna2: $(TOOLS) $(QKE_EQUATIONS) $(BACKGROUND) $(INPUT) $(LASAGNA2)
 	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
 
-lasagna3: $(TOOLS) $(QKE_EQUATIONS) $(BACKGROUND) $(INPUT) $(LASAGNA3)
-	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
-
-lasagna4: $(TOOLS) $(QKE_EQUATIONS) $(BACKGROUND) $(INPUT) $(LASAGNA4)
-	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
-
-lasagna5: $(TOOLS) $(QKE_EQUATIONS) $(BACKGROUND) $(INPUT) $(LASAGNA5)
-	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
-
-lasagna_loop: $(TOOLS) $(QKE_EQUATIONS) $(BACKGROUND) $(LASAGNA_LOOP)
-	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
-
 test_profile: $(TOOLS) $(QKE_EQUATIONS) $(BACKGROUND) $(TEST_PROFILE)
 	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
 
@@ -107,9 +87,6 @@ test_vdp: $(TOOLS) $(TEST_VDP)
 
 test_matio: $(TOOLS) $(TEST_MATIO)
 	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
-
-#test_2D_quadrature: $(TOOLS) $(TEST_2D_QUADRATURE)
-#	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
 
 tar:
 	tar czvf lasagna.tar.gz $(C_ALL) $(H_ALL) $(MISC_FILES)
