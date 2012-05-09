@@ -21,7 +21,9 @@ int Newton(int (*vecfun)(double * y, double * Fy, void *param),
   jac = malloc(sizeof(double*)*(neq+1));
   indx = malloc(sizeof(int)*(neq+1));
   mdelta_y = malloc(sizeof(double)*(neq+1));
-  for (i=1; i<=neq; i++) jac[i] = malloc(sizeof(double)*(neq+1));
+  
+  for (i=1; i<=neq; i++) 
+    jac[i] = malloc(sizeof(double)*(neq+1));
 
   for (*iter=1; *iter<=maxiter; (*iter)++){
     //Do Newton iteration:

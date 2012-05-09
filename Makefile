@@ -53,13 +53,15 @@ TEST_MATIO = test_matio.o
 
 TEST_PROFILE = test_profile.o
 
+TEST_PARTIAL = test_partial.o
+
 EXTRACT_MATRIX = extract_matrix.o
 
 INPUT = input.o
 
 C_TOOLS =  $(addprefix tools/, $(addsuffix .c,$(basename $(TOOLS))))
 C_SOURCE = $(addprefix source/, $(addsuffix .c,$(basename $(QKE_EQUATIONS) $(BACKGROUND) $(INPUT))))
-C_TEST = $(addprefix test/, $(addsuffix .c,$(basename $(TEST_MATIO) $(TEST_PROFILE) $(TEST_RKODE) )))
+C_TEST = $(addprefix test/, $(addsuffix .c,$(basename $(TEST_MATIO) $(TEST_PROFILE) $(TEST_RKODE) $(TEST_PARTIAL) )))
 C_MAIN = $(addprefix main/, $(addsuffix .c,$(basename $(LASAGNA) $(LASAGNA_LOOP) $(EXTRACT_MATRIX))))
 C_ALL = $(C_MAIN) $(C_TOOLS) $(C_SOURCE) $(C_TEST)
 H_ALL = $(addprefix include/, common.h $(addsuffix .h, $(basename $(notdir $(C_ALL)))))
@@ -86,6 +88,9 @@ test_vdp: $(TOOLS) $(TEST_VDP)
 	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
 
 test_matio: $(TOOLS) $(TEST_MATIO)
+	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
+
+test_partial: $(TOOLS) $(QKE_EQUATIONS) $(BACKGROUND) $(TEST_PARTIAL)
 	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
 
 tar:

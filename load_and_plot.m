@@ -8,6 +8,7 @@ mbin = 51;
 analytic_static = true;
 Ti_lowtemp = 6;%MeV
 filename = 'output/dump.mat';
+%filename = 'dump_004_008.mat';
 
 load(filename)
 S = load(filename);

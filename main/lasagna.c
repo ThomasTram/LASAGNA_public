@@ -38,6 +38,7 @@ int main(int argc, char **argv) {
     generic_evolver = evolver_radau5;
   }
   else if (qke_struct.evolver == 2){
+    printf("Runge-Kutta evolver\n");
     generic_evolver = evolver_rkdp45;
   }
   else{
@@ -52,8 +53,25 @@ int main(int argc, char **argv) {
   qke_init_output(&qke_struct);
 
   start = clock();  
-  func_return = generic_evolver(qke_derivs,
+    func_return = evolver_ndf15(qke_derivs,
 				qke_struct.T_initial,
+				qke_struct.T_initial-1e-3,
+				y_inout, 
+				interp_idx,
+				qke_struct.neq, 
+				&qke_struct,
+				qke_struct.rtol, 
+				qke_struct.abstol, 
+				qke_struct.Tvec, 
+				qke_struct.Tres,
+				qke_struct.Ap,
+				qke_struct.Ai,
+				qke_store_output,
+				NULL,
+				NULL,//qke_stop_at_L,
+				error_message);
+    func_return = generic_evolver(qke_derivs,
+				qke_struct.T_initial-1e-3,
 				qke_struct.T_final,
 				y_inout, 
 				interp_idx,
@@ -69,6 +87,7 @@ int main(int argc, char **argv) {
 				NULL,
 				NULL,//qke_stop_at_L,
 				error_message);
+  
   end = clock();
   cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
   printf("CPU time used: %g minutes.\n",cpu_time_used/60.0);    

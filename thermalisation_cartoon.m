@@ -2,7 +2,9 @@ function Do_thermalisation_cartoon
 clc;clear;
 close all
 %filename = 'd:\Shared\lasagna_svn\te_IH_0_ndf\dump_004_008.mat'
-filename = 'd:\Shared\lasagna_svn\dump_004_008.mat'
+%filename = 'd:\Shared\lasagna_svn\dump_004_008.mat'
+%filename = 'd:\Shared\chaos\dump_004_008.mat'
+filename = 'd:\Shared\chaos\test_004_008.mat'
 
 
 dump_at_x = [0.1,1,2,3,5,10];
@@ -85,7 +87,7 @@ for i=1:length(idx_x)
     
     drawnow
     save_eps_and_pdf('resonant_thermalisation_',...
-        'd:\Shared\lasagna_svn\plots\cartoon',...
+        'd:\Shared\chaos\cartoon',...
         [num2str(i),'.eps'])
     end
 

@@ -18,11 +18,14 @@ close all;
 %filename = 'd:\Shared\lasagna_svn\te_IH_0_ndf\dump_013_024.mat'
 %filename = 'd:\Shared\lasagna_svn\te_IH_0_ndf\dump_004_016.mat'
 
-filename = 'd:\Shared\lasagna_svn\te_IH_0_ndf\dump_004_008.mat'
-filename = 'd:\Shared\lasagna_svn\te_IH_0_ndf\dump_008_004.mat'
+%filename = 'd:\Shared\lasagna_svn\te_IH_0_ndf\dump_004_008.mat'
+%filename = 'd:\Shared\lasagna_svn\te_IH_0_ndf\dump_008_004.mat'
+
+filename = 'd:\Shared\chaos\dump_004_008.mat'
+%filename = 'd:\Shared\chaos\test_004_008.mat'
 
 S = load(filename,'T','L','x_grid','Ps_plus','Ps_minus','Pa_plus','Pa_minus',...
-    'Py_plus','Py_minus','xi','alpha_rs','delta_m2_theta_zero');
+    'Py_plus','Py_minus','xi','alpha_rs','delta_m2_theta_zero','xi');
 
 mask = S.T~=0;
 last_idx = sum(mask);

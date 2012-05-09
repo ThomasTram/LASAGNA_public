@@ -117,7 +117,7 @@ int evolver_ndf15(
 	
   /* Misc: */
   int stepstat[6],nfenj,j,ii,jj, numidx, neqp=neq+1;
-  int verbose=2;
+  int verbose=5;
 
   /** Allocate memory . */
 
@@ -186,7 +186,7 @@ int evolver_ndf15(
   /* 	lasagna_calloc(dif[1],(7*neq+1),sizeof(double),error_message); */
   /* 	dif[0] = NULL; */
   /* 	for(j=2;j<=neq;j++) dif[j] = dif[j-1]+7; */ /* Set row pointers... */ 
-
+ 
   /*Set pointers:*/
   ynew = y_inout-1; /* This way y_inout is always up to date. */
 
@@ -213,6 +213,7 @@ int evolver_ndf15(
       interpidx[ii]=1;
     }
   }
+
   t0 = x_ini;
   tfinal = x_final;
 
@@ -234,7 +235,7 @@ int evolver_ndf15(
     for(ii=1;ii<=neq;ii++){
       if (interpidx[ii]==_TRUE_) numidx++;
     }
-    printf("%d/%d ",numidx,neq);
+    printf("%d/%d\n",numidx,neq);
   }
 
   htspan = fabs(tfinal-t0);
@@ -243,12 +244,12 @@ int evolver_ndf15(
   for(ii=0;ii<6;ii++) stepstat[ii] = 0;
   
   printf("First call to derivs at t=%.16e.\n",t0);
-   lasagna_call((*derivs)(t0,y+1,f0+1,parameters_and_workspace_for_derivs,error_message),error_message,error_message);
+
+
+ lasagna_call((*derivs)(t0,y+1,f0+1,parameters_and_workspace_for_derivs,error_message),error_message,error_message);
   stepstat[2] +=1;
-  
+
   t = t0;
-
-
   nfenj=0;
   lasagna_call(numjac((*derivs),t,y,f0,&jac,&nj_ws,abstol,neq,
 		      &nfenj,parameters_and_workspace_for_derivs,error_message),
@@ -256,7 +257,7 @@ int evolver_ndf15(
   stepstat[3] += 1;
   stepstat[2] += nfenj;
   Jcurrent = _TRUE_; 
-  
+   
 	
   hmin = 16.0*DBL_EPSILON*fabs(t);
   /*Calculate initial step */
@@ -320,8 +321,9 @@ for(ii=1;ii<=neq;ii++){
     for (ii=0; ii<Ap[neq]; ii++){
       jac.spJ->Ai[ii] = Ai[ii];
     }
+
     jac.pattern_supplied = _TRUE_;
-    printf("Calling numjac...\n");
+    printf("Calling numjac... next = %d\n",next);
     lasagna_call(numjac((*derivs),
 			t,
 			y,
@@ -639,7 +641,7 @@ for(ii=1;ii<=neq;ii++){
 			     parameters_and_workspace_for_derivs,
 			     error_message),error_message,error_message);
     }
-    else{
+    else {
       //Output at Tvec grid:
       while ((next<tres)&&(tdir * (tnew - t_vec[next]) >= 0.0)){
 	/* Do we need to write output? */
@@ -1281,6 +1283,7 @@ int numjac(
       group = jac->col_group[j];
       Fdiff_new = 0.0;
       Fdiff_absrm = 0.0;
+      
       for(i=Ap[j];i<Ap[j+1];i++){
 	/* Loop over rows in the sparse matrix */
 	row = Ai[i]+1;

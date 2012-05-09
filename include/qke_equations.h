@@ -8,6 +8,7 @@
 /**************************************************************/
 
 typedef struct qke_param_structure{
+  FILE *tmp;
   char output_filename[_FILENAMESIZE_]; //Where to write output.
   int evolver;   //Which time integrator to use
   int nproc;     //Number of cores available.
@@ -15,6 +16,7 @@ typedef struct qke_param_structure{
   int neq;       //Number of equations
   int Tres;      //Entries in time/Temperature vector.
   int is_electron; //True if we have electron neutrino, False otherwise.
+  int guess_exists;
   double rtol;   //Relative tolerance of integrator
   double abstol; //Absolute tolerance of integrator
   double alpha;  //Sampling density aound resonances (0=most dense, 1=uniform)
@@ -154,9 +156,9 @@ extern "C" {
 			    ErrorMsg error_message);
   
   //Misc.:
-  int get_resonances_xi2(double T, 
-			 double L,
-			 qke_param *pqke);
+  int get_resonances_xi(double T, 
+			double L,
+			qke_param *pqke);
   int get_resonances_dxidT(double T, 
 			   double L,
 			   double dLdT,
@@ -173,11 +175,20 @@ extern "C" {
 			      qke_param *pqke, 
 			      ErrorMsg error_message);
   int u_of_x(double x, double *u, double *dudx, qke_param *param);
-  int get_resonances_xi(double T, double L, qke_param *param);
   int x_of_u(double u, double *x, qke_param *param);
   int nonlinear_rhs(double *y, double *Fy, void *param);
   double drhodv(double *rho, double delta_v, int index, int stencil_method);
-
+  int qke_derivs_test_partial(double T, 
+			      double *y, 
+			      double *dy, 
+			      void *param,
+			      ErrorMsg error_message);
+  int qke_test_partial_output(double T,
+			      double *y,
+			      double *dy,
+			      int index_t,
+			      void *param,
+			      ErrorMsg error_message);
 
 #ifdef __cplusplus
 }

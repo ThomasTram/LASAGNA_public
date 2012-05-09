@@ -54,6 +54,7 @@ int init_qke_param(qke_param *pqke){
   else{
      pqke->C_alpha = 0.92;
   }
+  pqke->guess_exists = _FALSE_;
   
   //Set up the indices:
   idx = 0;
@@ -203,71 +204,20 @@ int free_qke_param(qke_param *pqke){
   free(pqke->indx);
   free(pqke->Ap);
   free(pqke->Ai);
-
+  background_free_dof(&(pqke->pbs));
   return _SUCCESS_;
 };
 
 
-int get_resonances_xi(double T, double L, qke_param *param){
-	double phi,chi;
-	double *xi=param->xi;
-	double *dxidT=param->dxidT;
-	double frac;
-	int i;
-
-	//Make sure the resonances are sorted:
-	L = fabs(L);
-
-	if (param->is_electron == _FALSE_){
-	  phi = 45.0*_M_Z_*_M_Z_*_ZETA3_*L/(7.0*T*T*pow(_PI_,4));
-	  chi = 45.0*_M_Z_*_M_Z_*fabs(param->delta_m2)*
-	    cos(2.0*param->theta_zero)/
-	    (14.0*sqrt(2.0)*_PI_*_PI_*_G_F_*pow(T,6));
-	}
-	else{
-	  phi = 45.0*_M_W_*_M_W_*_ZETA3_*L/
-	    (14.0*(1.5-0.5*_SIN2_THETA_W_)*T*T*pow(_PI_,4));
-	  chi = 45.0*fabs(param->delta_m2)*cos(2.0*param->theta_zero)*_M_W_*_M_W_/
-	    (28.0*sqrt(2.0)*_PI_*_PI_*_G_F_*pow(T,6)*(1.5-0.5*_SIN2_THETA_W_));
-	}
-	xi[0] = sqrt(phi*phi+chi)-phi;
-	xi[1] = sqrt(phi*phi+chi)+phi;
-	
-	/**	if (xi[1]<xi[0])
-	  printf("x1 = %g, x2 = %g, ???\n",xi[0],xi[1]);
-	*/
-
-	frac = (2.0*phi*phi+3*chi)/sqrt(phi*phi+chi);
-	dxidT[0] = -(frac+2.0*phi)/T;
-	dxidT[1] = -(frac-2.0*phi)/T;
-
-	// Protect against possible seg fault:
-	for (i=0; i<param->Nres; i++){
-	  if ((1==0)&&(xi[i]<param->xmin)) {
-	    /**printf("Note: Resonance at T=%g MeV is lower than xmin=%g. (It is %g.)\n",
-	       T*1e3,param->xmin,xi[i]);*/
-	    xi[i] = param->xmin;
-	    dxidT[i] = 0.0;
-	  }
-	  else if(xi[i]>param->xmax){
-	    /**	    printf("Note: Resonance at T=%g MeV is higher than xmax=%g. (It is %g.)\n",
-		    T*1e3,param->xmax,xi[i]);*/
-	    xi[i] = param->xmax;
-	    dxidT[i] = 0.0;
-	  }
-	}
-
-	return _SUCCESS_;
-};
-
-int get_resonances_xi2(double T, 
-		       double L,
-		       qke_param *pqke){
+int get_resonances_xi(double T, 
+		      double L,
+		      qke_param *pqke){
   double *xi=pqke->xi;
-  double x0, A;
+  double x0, x0b,A;
   int i;
 
-  x0 = sqrt(fabs(pqke->V0/pqke->V1));  
+  x0 = sqrt(fabs(pqke->V0/pqke->V1));
+  
   xi[0] = x0;
   xi[1] = x0;
   A = fabs(0.5*pqke->VL/sqrt(fabs(pqke->V0*pqke->V1)));
@@ -300,45 +250,55 @@ int get_resonances_dxidT(double T,
   double *dxidT=pqke->dxidT;
   double F;
   double one_plus_dlogLdlogT;
+  int i;
 
   x0 = sqrt(fabs(pqke->V0/pqke->V1));  
  
   dxidT[0] = -3.0*x0/T;
   dxidT[1] = -3.0*x0/T;
 
-  if (fabs(L)<1e-100){
-    return _SUCCESS_;
+  if (fabs(L)>1e-100){
+ 
+    A = fabs(0.5*pqke->VL/sqrt(fabs(pqke->V0*pqke->V1)));
+    A2 = A*A;
+    one_plus_dlogLdlogT = 1.0+T/L*dLdT;
+ 
+    if (pqke->delta_m2<0.0){
+      //Case of inverted Hierarchy
+      F = -A+sqrt(1.0+A2);
+      dxidT[0] *= (F-A/3.0*one_plus_dlogLdlogT*(-1.0+pow(1.0+1.0/A2,-0.5)));
+      F = A+sqrt(1.0+A2);
+      dxidT[1] *= (F-A/3.0*one_plus_dlogLdlogT*(1.0+pow(1.0+1.0/A2,-0.5)));
+    }
+    else{
+      //Case of normal hierarchy:
+      if (A>1.0){
+	F = A-sqrt(A2-1.0);
+	dxidT[0] *= (F-A/3.0*one_plus_dlogLdlogT*(1.0-pow(1.0-1.0/A2,-0.5)));
+	F = A+sqrt(A2-1.0);
+	dxidT[1] *= (F-A/3.0*one_plus_dlogLdlogT*(1.0+pow(1.0-1.0/A2,-0.5))); 
+      }
+    }
   }
-
-  A = fabs(0.5*pqke->VL/sqrt(fabs(pqke->V0*pqke->V1)));
-  A2 = A*A;
-  one_plus_dlogLdlogT = 1.0+T/L*dLdT;
-
-  if (pqke->delta_m2<0.0){
-    //Case of inverted Hierarchy
-    F = -A+sqrt(1.0+A2);
-    dxidT[0] *= (F-A/3.0*one_plus_dlogLdlogT*(-1.0+pow(1.0+1.0/A2,-0.5)));
-    F = A+sqrt(1.0+A2);
-    dxidT[1] *= (F-A/3.0*one_plus_dlogLdlogT*(1.0+pow(1.0+1.0/A2,-0.5)));
-  }
-  else{
-    //Case of normal hierarchy:
-    if (A>1.0){
-      F = A-sqrt(A2-1.0);
-      dxidT[0] *= (F-A/3.0*one_plus_dlogLdlogT*(1.0-pow(1.0-1.0/A2,-0.5)));
-      F = A+sqrt(A2-1.0);
-      dxidT[1] *= (F-A/3.0*one_plus_dlogLdlogT*(1.0+pow(1.0-1.0/A2,-0.5))); 
+  //Make it selfconsistent:
+  for (i=0; i<pqke->Nres; i++){
+    if(pqke->xi[i]>=(pqke->xmax-1e-12)){
+      dxidT[i] = 0.0;
     }
   }
   return _SUCCESS_;
 };
 
 
-int u_of_x(double x, double *u, double *dudx, qke_param *param){
-  double x_plus_xext;
-  x_plus_xext = x+param->xext;
-  *u = (x*(1.0+param->eps2)-param->xext*param->eps1)/x_plus_xext;
-  *dudx = param->xext*(1+param->eps1+param->eps2)/x_plus_xext/x_plus_xext;
+int u_of_x(double x, double *u, double *dudx, qke_param *pqke){
+  double K,xmin,xmax,xext;
+  xmin = pqke->xmin;
+  xmax = pqke->xmax;
+  xext = pqke->xext;
+  K = (xext+xmax)/(xmax-xmin);
+  *u = K*(x-xmin)/(x+xext);
+  *dudx = K*(xext+xmin)/pow(x+xext,2);
+
   return _SUCCESS_;
 };
 
@@ -438,20 +398,37 @@ int qke_initial_conditions_fixed_grid(double Ti, double *y, qke_param *pqke){
   /** Set initial conditions at temperature Ti: */
   int i;
   ErrorMsg error_message;
-  double x, *dy;
+  double x, L, n_plus=2.0;
   double Vx,D,Vz,Vz_bar,Px,Py,Px_bar,Py_bar;
 
   //Assuming y is calloc'ed -- dangerous, better to zero it.
   for (i=0; i<pqke->neq; i++) y[i] = 0.0;
 
+  L = pqke->L_initial;
   //Set standard equilibrium initial conditions:
-  y[pqke->index_L] = pqke->L_initial/_L_SCALE_;
+  y[pqke->index_L] = L/_L_SCALE_;
   for (i=0; i<pqke->vres; i++)
     y[pqke->index_Pa_plus+i] = 4.0;
   
-  //Do one call to qke_derivs to get the coordinate transformation.
-  dy = malloc(sizeof(double)*pqke->neq);
-  qke_derivs(Ti,y,dy,pqke,error_message);
+/** Calculate 'scalar' potentials Vx, V0, VL
+      (not momentum dependent): */
+  if (pqke->is_electron==_TRUE_)
+    pqke->g_alpha = 1.0+4.0/((1.0-_SIN2_THETA_W_)*n_plus);
+  else
+    pqke->g_alpha = 1.0;
+  pqke->VL = sqrt(2.0)*_G_F_*2.0*_ZETA3_*pow(Ti,3)/_PI_/_PI_*L;
+  pqke->Vx = pqke->delta_m2/(2.0*Ti)*sin(2.0*pqke->theta_zero);
+  pqke->V0 = -pqke->delta_m2/(2.0*Ti)*cos(2.0*pqke->theta_zero);
+  pqke->V1 = -7.0*_PI_*_PI_/(45.0*sqrt(2.0))*
+    _G_F_/_M_Z_/_M_Z_*pow(Ti,5)*n_plus*pqke->g_alpha;
+
+  get_resonances_xi(Ti,L,pqke);  
+  //Get new x_grid
+  lasagna_call(get_parametrisation(Ti,
+				   pqke, 
+				   error_message),
+	       error_message,error_message);
+  
 
   for (i=0; i<pqke->vres; i++){
     x = pqke->x_grid[i];
@@ -472,7 +449,6 @@ int qke_initial_conditions_fixed_grid(double Ti, double *y, qke_param *pqke){
     y[pqke->index_Py_minus+i] = Py - Py_bar;
  
   }
-  free(dy);
   return _SUCCESS_;
 };
 
@@ -725,7 +701,7 @@ int get_parametrisation(double T,qke_param *pqke, ErrorMsg error_message){
   }
   
   //Establish guess and set maximum steps for Newton method:
-  if (T==pqke->T_initial){
+  if (1==1){//(pqke->guess_exists == _FALSE_){
     y_0[0] = 1.0 - alpha;
     maxstep[0] = 100.0;
     for (i=1; i<=pqke->Nres; i++){
@@ -754,7 +730,7 @@ int get_parametrisation(double T,qke_param *pqke, ErrorMsg error_message){
 		      pqke->Nres+1,
 		      error_message),
 	       error_message,error_message);
-    
+  pqke->guess_exists = _TRUE_;
   pqke->b = y_0[0];
   for (i=0; i<pqke->Nres; i++){
     vi[i] = y_0[i+1];
@@ -863,12 +839,35 @@ int get_partial_derivatives(double T,
       continue;
     //Loop over each segment:
     for (j=pqke->indx[i]; j<pqke->indx[i+1]; j++){
-      daidT = duidT[i]-alpha*dvidT[i];//<<--- PROBLEM HERE?
+      daidT = duidT[i]-alpha*dvidT[i];
       dvdu_grid[j] = 1.0/(alpha+3.0*pqke->b*pow(v_grid[j]-vi[i],2));
       dudT_grid[j] = daidT+dbdT*pow(v_grid[j]-vi[i],3)-
-	3.0*pqke->b*pow(v_grid[j]-vi[i],2);
+	3.0*pqke->b*pow(v_grid[j]-vi[i],2)*dvidT[i];
     }
   }
+  /** Debug area*/ 
+  /**
+  fprintf(pqke->tmp,"%.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e %.16e\n",
+	  T,
+	  pqke->a[0],
+	  pqke->a[1],
+	  duidT[0]-alpha*dvidT[0],
+	  duidT[1]-alpha*dvidT[1], 
+	  pqke->b,
+	  dbdT,
+	  pqke->xi[0],
+	  pqke->xi[1],
+	  pqke->dxidT[0], 
+	  pqke->dxidT[1],
+	  pqke->ui[0],
+	  pqke->ui[1],
+	  pqke->duidT[0],
+	  pqke->duidT[1],
+	  pqke->vi[0],
+	  pqke->vi[1],
+	  pqke->dvidT[0],
+	  pqke->dvidT[1]);
+  */
 return _SUCCESS_;
 }
 
@@ -911,7 +910,7 @@ int qke_derivs(double T,
   pqke->V1 = -7.0*_PI_*_PI_/(45.0*sqrt(2.0))*
     _G_F_/_M_Z_/_M_Z_*pow(T,5)*n_plus*pqke->g_alpha;
 
-  get_resonances_xi2(T,L,pqke);
+  get_resonances_xi(T,L,pqke);
   
   //Get new x_grid
   lasagna_call(get_parametrisation(T,
@@ -944,13 +943,13 @@ int qke_derivs(double T,
 				       error_message),
 	       error_message,error_message);
 
-
-
-  
   /** Calculate RHS: */
   dy[pqke->index_L] = dLdT/_L_SCALE_;
+  //Solving mu from L, using the chebyshev cubic root:
+  mu_div_T = -2*_PI_/sqrt(3.0)*
+    sinh(1.0/3.0*asinh(-18.0*sqrt(3.0)*_ZETA3_*L/pow(_PI_,3)));
+  
   /** All quantities defined on the grid: */
-
   delta_v = v_grid[1]-v_grid[0];
   for (i=0; i<pqke->vres; i++){
     x = pqke->x_grid[i];
@@ -969,10 +968,6 @@ int qke_derivs(double T,
     Py_plus = y[pqke->index_Py_plus+i];
     Py_minus = y[pqke->index_Py_minus+i];
   
-    //Solving mu from L, using the chebyshev cubic root:
-    mu_div_T = -2*_PI_/sqrt(3.0)*
-      sinh(1.0/3.0*asinh(-18.0*sqrt(3.0)*_ZETA3_*L/pow(_PI_,3)));
-
     //Distributions:
     feq_plus = 1.0/(1.0+exp(x-mu_div_T))+1.0/(1.0+exp(x+mu_div_T));
     feq_minus = 1.0/(1.0+exp(x-mu_div_T))-1.0/(1.0+exp(x+mu_div_T));
@@ -1041,7 +1036,7 @@ int qke_derivs_fixed_grid(double T,
   double gentr,H;
   double Vx, VL;
   double x, w_trapz;
-  double Gamma, D, V0, V1;
+  double Gamma, D, V0, V1, n_plus;
   double f0,  mu_div_T;
   double Pa_plus,Pa_minus,Ps_plus,Ps_minus;
   double Px_plus,Px_minus,Py_plus,Py_minus;
@@ -1060,47 +1055,37 @@ int qke_derivs_fixed_grid(double T,
 
   /** Calculate 'scalar' potentials Vx, V0, VL
       (not momentum dependent): */
+  /** Calculate 'scalar' potentials Vx, V0, VL
+      (not momentum dependent): */
   pqke->VL = sqrt(2.0)*_G_F_*2.0*_ZETA3_*pow(T,3)/_PI_/_PI_*L;
   VL = pqke->VL;
   pqke->Vx = pqke->delta_m2/(2.0*T)*sin(2.0*pqke->theta_zero);
   pqke->V0 = -pqke->delta_m2/(2.0*T)*cos(2.0*pqke->theta_zero);
-  
-  /** Integrated quantities needed. We integrate in x space: */
-  I_VxPy_minus = 0.0;
-  I_f0Pa_plus = 0.0;
-  for (i=0; i<pqke->vres; i++){
-    if (i==0)
-      w_trapz = 0.5*(x_grid[i+1]-x_grid[i]);
-    else if (i==pqke->vres-1)
-      w_trapz = 0.5*(x_grid[i]-x_grid[i-1]);
-    else
-      w_trapz = 0.5*(x_grid[i+1]-x_grid[i-1]);
-    x = x_grid[i];
-    f0 = 1.0/(1.0+exp(x));
-    Vx = pqke->Vx/x;
-    Py_minus = y[pqke->index_Py_minus+i];
-    Pa_plus = y[pqke->index_Pa_plus+i];
-    
-    I_VxPy_minus += w_trapz*(x*x*Vx*Py_minus*f0);
-    I_f0Pa_plus += w_trapz*(x*x*f0*Pa_plus);
-  }
+
+  lasagna_call(get_integrated_quantities(y,
+					 pqke,
+					 &I_VxPy_minus,
+					 &I_f0Pa_plus,
+					 error_message),
+	       error_message,error_message);
+
+  n_plus = I_f0Pa_plus/(3.0*_ZETA3_); 
   //Set V1:
-  if (pqke->is_electron == _TRUE_){
-    pqke->V1 = -14.0*sqrt(2.0)*_PI_*_PI_/45.0*_G_F_/_M_W_/_M_W_*pow(T,5)*
-      (1.0+1.0/(12.0*_ZETA3_)*(1.0-_SIN2_THETA_W_)*I_f0Pa_plus);
-  }
-  else{
-    pqke->V1 = -7.0*_PI_*_PI_/(135.0*sqrt(2.0)*_ZETA3_)*
-      _G_F_/_M_Z_/_M_Z_*pow(T,5)*I_f0Pa_plus;
-  }
+  if (pqke->is_electron==_TRUE_)
+    pqke->g_alpha = 1.0+4.0/((1.0-_SIN2_THETA_W_)*n_plus);
+  else
+    pqke->g_alpha = 1.0;
+  pqke->V1 = -7.0*_PI_*_PI_/(45.0*sqrt(2.0))*
+    _G_F_/_M_Z_/_M_Z_*pow(T,5)*n_plus*pqke->g_alpha;
 
   /** Calculate RHS: */ 
   dLdT = -1.0/(8.0*H*T*_ZETA3_)*I_VxPy_minus;
   dy[pqke->index_L] = dLdT/_L_SCALE_;
- 
-  /** All quantities defined on the grid: */
-
+  //Solving mu from L, using the chebyshev cubic root:
+  mu_div_T = -2*_PI_/sqrt(3.0)*
+    sinh(1.0/3.0*asinh(-18.0*sqrt(3.0)*_ZETA3_*L/pow(_PI_,3)));
   
+  /** All quantities defined on the grid: */
   for (i=0; i<pqke->vres; i++){
     x = x_grid[i];
     Vx = pqke->Vx/x;
@@ -1118,11 +1103,7 @@ int qke_derivs_fixed_grid(double T,
     Px_minus = y[pqke->index_Px_minus+i];
     Py_plus = y[pqke->index_Py_plus+i];
     Py_minus = y[pqke->index_Py_minus+i];
-  
-    //Solving mu from L, using the chebyshev cubic root:
-    mu_div_T = -2*_PI_/sqrt(3.0)*
-      sinh(1.0/3.0*asinh(-18.0*sqrt(3.0)*_ZETA3_*L/pow(_PI_,3)));
-  
+   
     //Distributions:
     feq_plus = 1.0/(1.0+exp(x-mu_div_T))+1.0/(1.0+exp(x+mu_div_T));
     feq_minus = 1.0/(1.0+exp(x-mu_div_T))-1.0/(1.0+exp(x+mu_div_T));
@@ -1170,4 +1151,96 @@ double drhodv(double *rho, double delta_v, int index, int stencil_method){
     drho = (-rho[index+2]+8.0*rho[index+1]
 	    -8.0*rho[index-1]+rho[index-2])/(12*delta_v);
   return drho;
+}
+
+
+int qke_derivs_test_partial(double T, 
+	       double *y, 
+	       double *dy, 
+	       void *param,
+	       ErrorMsg error_message){
+  double L,dLdT, delta_v,x,dudTdvdu,Ltau=1e3;
+  int i, stencil_method;
+  qke_param *pqke = param;
+  L = 2e-6*pow(sin(T*Ltau),2);
+
+  /** Calculate 'scalar' potentials Vx, V0, VL
+      (not momentum dependent): */
+  pqke->VL = sqrt(2.0)*_G_F_*2.0*_ZETA3_*pow(T,3)/_PI_/_PI_*L;
+  pqke->Vx = pqke->delta_m2/(2.0*T)*sin(2.0*pqke->theta_zero);
+  pqke->V0 = -pqke->delta_m2/(2.0*T)*cos(2.0*pqke->theta_zero);
+  pqke->V1 = -7.0*_PI_*_PI_/(45.0*sqrt(2.0))*
+    _G_F_/_M_Z_/_M_Z_*pow(T,5)*2.0;
+
+  get_resonances_xi(T,L,pqke);
+
+  //Get new x_grid
+  lasagna_call(get_parametrisation(T,
+				   pqke, 
+				   error_message),
+	       error_message,error_message);
+  
+
+  dLdT = 2e-6*2.0*sin(T*Ltau)*cos(T*Ltau)*Ltau;
+  //Get partial derivatives:
+  lasagna_call(get_partial_derivatives(T,
+				       L,
+				       dLdT,
+				       pqke, 
+				       error_message),
+	       error_message,error_message);
+
+  /** All quantities defined on the grid: */
+  delta_v = pqke->v_grid[1]-pqke->v_grid[0];
+  fprintf(stderr,"%.16e ",T);
+  for (i=0; i<pqke->vres; i++){
+    x = pqke->x_grid[i];
+    dudTdvdu = pqke->dudT_grid[i]*pqke->dvdu_grid[i];
+
+    //Define index steps for calculating derivatives:
+    if (i==0)
+      stencil_method = 12; //First order, forward   12
+    else if (i==pqke->vres-1)
+      stencil_method = 10; //First order, backwards 10
+    else if ((i==pqke->vres-2)||(i==1))
+      stencil_method = 21; //Second order, centered 21
+    else
+      stencil_method = 51; //Fifth order, centered  51
+
+    dy[i] = dudTdvdu*drhodv(y, delta_v, i, stencil_method);
+    fprintf(stderr,"%.16e %.16e %.16e ",-dudTdvdu,x,pqke->dudT_grid[i]);
+    //fprintf(stderr,"%.16e ",drhodv(y, delta_v, i, stencil_method));
+  }
+  fprintf(stderr,"\n");
+  //fprintf(stderr,"%g %g %g\n",T, dy[pqke->vres-2],dy[pqke->vres-1]);
+  
+  /**fprintf(stderr,"%g %g %g\n",T, 
+	  drhodv(y, delta_v, pqke->vres-2, 10),
+	  drhodv(y, delta_v, pqke->vres-1, 10));*/
+  return _SUCCESS_;
+}
+  
+int qke_test_partial_output(double T,
+			    double *y,
+			    double *dy,
+			    int index_t,
+			    void *param,
+			    ErrorMsg error_message){
+
+  FILE *output_file;
+  qke_param *pqke=param;
+  int i;
+  double L,Ltau = 1e3;
+  L = 1e-4*pow(sin(T*Ltau),2);
+
+  output_file = fopen(pqke->output_filename,"a+");
+  
+  fprintf(output_file,"%.16e %.16e ",T*1e3, L);
+  for (i=0; i<pqke->vres; i++){
+    fprintf(output_file,"%.16e %.16e ",pqke->x_grid[i],y[i]);
+  }
+  fprintf(output_file,"\n");
+  fclose(output_file);
+
+  return _SUCCESS_;
 }

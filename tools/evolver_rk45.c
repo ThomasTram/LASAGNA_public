@@ -282,14 +282,13 @@ int evolver_rkdp45(
   double threshold = abstol/rtol;
   int nofailed;
   double pow_grow=0.2;
-  int verbose=1;
+  int verbose=2;
   int stats[3]={0,0,0};
   double rh,maxtmp;
   //Interpolation variables:
   double i01,i02,i03;
   double ixx[5][3];
   double ti,ss1,ss2,ss3,ss4,*yinterp,*dyinterp;
-  double min_step = 1e-7;
   dy = malloc(sizeof(double)*neq);
   ytemp = malloc(sizeof(double)*neq);
   yinterp = malloc(sizeof(double)*neq);
@@ -328,7 +327,6 @@ int evolver_rkdp45(
   */
 
   t = t_ini;
-
   //initialise ki
   derivs(t,y_inout,ki,ppaw, error_message);
   stats[2]++;
@@ -352,6 +350,7 @@ int evolver_rkdp45(
     tdir = 1;
   else
     tdir = -1;
+
   hnew = absh*tdir;
   h = hnew;
   //Find current index:
@@ -387,7 +386,7 @@ int evolver_rkdp45(
 	}
       }
       // Calculate k_i:
-      if (verbose>1){
+      if (verbose>2){
 	printf("Evaluating ODE at t=%g, ci[i] = %g. h=%g\n",
 	       t+ci[i]*h,ci[i],h);
 	printf("y_inout = [%g,%g]. ytemp = [%g,%g]\n",
@@ -401,7 +400,7 @@ int evolver_rkdp45(
 	err[k] += h*bi_diff[i]*ki[i*neq+k];
       }
     }
-    if (verbose>4)
+    if (verbose>3)
       printf("Finished loop over i, new y has been found.\n");
     // Got new y and error estimate.
     for (k=0,errmax = 0.0; k<neq; k++){
@@ -412,7 +411,7 @@ int evolver_rkdp45(
     }
     if (verbose>3)
       printf("h: %g, errmax = %g\n",h,errmax);
-    if ((errmax>rtol)&&(fabs(h)>min_step)){
+    if (errmax>rtol){
       if (verbose>4) 
 	printf("Step rejected..\n");
       stats[1]++;
@@ -431,13 +430,11 @@ int evolver_rkdp45(
       if (print_variables!=NULL){
 	print_variables(tnew,ynew,ki+6*neq,ppaw,error_message); 
       }
-      if (verbose>4)
-	printf("Step accepted..\n");
+      if (verbose>1)
+	printf("Step accepted. t=%g, h=%g\n",t,h);
       nofailed = _TRUE_;
-      if ((fabs(h)<=min_step)&&(errmax>rtol))
-	hnew = tdir*min_step;
-      else
-	hnew = tdir*max(hmin, fabs(h) * max(0.1, 0.8*pow(rtol/errmax,pow_grow)));
+      
+      hnew = tdir*max(hmin, fabs(h) * max(0.1, 0.8*pow(rtol/errmax,pow_grow)));
       tnew = t+h;
       //Do we need to write output?
       if (t_vec==NULL){
