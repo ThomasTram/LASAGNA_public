@@ -20,10 +20,10 @@ CC = gcc
 
 #CCFLAG   = -O0 -Wall -ggdb -g
 #LDFLAG   = -O0 -Wall -ggdb -g
-#CCFLAG   = -O4 -Wall -g --fast-math
-#LDFLAG   = -O4 -Wall -g --fast-math
-CCFLAG   = -O2 -g
-LDFLAG   = -O2 -g
+CCFLAG   = -O4 -Wall -g --fast-math
+LDFLAG   = -O4 -Wall -g --fast-math
+#CCFLAG   = -O2 -g
+#LDFLAG   = -O2 -g
 #CCFLAG   = -fast -w2
 #LDFLAG   = -fast -w2
 #CCFLAG   = -complex-limited-range -g -O3 -B/usr/lib/i386-linux-gnu -I/usr/include/i386-linux-gnu

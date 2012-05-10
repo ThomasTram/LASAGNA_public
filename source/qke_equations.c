@@ -701,7 +701,7 @@ int get_parametrisation(double T,qke_param *pqke, ErrorMsg error_message){
   }
   
   //Establish guess and set maximum steps for Newton method:
-  if (1==1){//(pqke->guess_exists == _FALSE_){
+  if (pqke->guess_exists == _FALSE_){
     y_0[0] = 1.0 - alpha;
     maxstep[0] = 100.0;
     for (i=1; i<=pqke->Nres; i++){
@@ -736,6 +736,7 @@ int get_parametrisation(double T,qke_param *pqke, ErrorMsg error_message){
     vi[i] = y_0[i+1];
     pqke->a[i] = ui[i]-alpha*vi[i];
   }
+
   //Now update grids:
   /** Find the splitting of v and store it temporarily in pqke->indx.
       We use the fact that v is uniform.

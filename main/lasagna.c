@@ -53,25 +53,8 @@ int main(int argc, char **argv) {
   qke_init_output(&qke_struct);
 
   start = clock();  
-    func_return = evolver_ndf15(qke_derivs,
-				qke_struct.T_initial,
-				qke_struct.T_initial-1e-3,
-				y_inout, 
-				interp_idx,
-				qke_struct.neq, 
-				&qke_struct,
-				qke_struct.rtol, 
-				qke_struct.abstol, 
-				qke_struct.Tvec, 
-				qke_struct.Tres,
-				qke_struct.Ap,
-				qke_struct.Ai,
-				qke_store_output,
-				NULL,
-				NULL,//qke_stop_at_L,
-				error_message);
     func_return = generic_evolver(qke_derivs,
-				qke_struct.T_initial-1e-3,
+				qke_struct.T_initial,
 				qke_struct.T_final,
 				y_inout, 
 				interp_idx,

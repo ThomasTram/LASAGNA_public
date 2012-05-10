@@ -113,7 +113,7 @@ int evolver_ndf15(
   double rh,htspan,absh,hmin,hmax,h,tdel;
   double abshlast,hinvGak,minnrm,oldnrm=0.,newnrm;
   double err,hopt,errkm1,hkm1,errit,rate=0.,temp,errkp1,hkp1,maxtmp;
-  int k,klast,nconhk,iter,next,kopt,tdir;
+  int k,klast,nconhk,iter,next=0,kopt,tdir;
 	
   /* Misc: */
   int stepstat[6],nfenj,j,ii,jj, numidx, neqp=neq+1;
@@ -230,7 +230,7 @@ int evolver_ndf15(
     for(next=0; (t_vec[next]-t0)*tdir<0.0; next++);
   }
  	
-  if (verbose > 1){
+  if (verbose > 3){
     numidx=0;
     for(ii=1;ii<=neq;ii++){
       if (interpidx[ii]==_TRUE_) numidx++;
@@ -243,16 +243,27 @@ int evolver_ndf15(
 
   for(ii=0;ii<6;ii++) stepstat[ii] = 0;
   
-  printf("First call to derivs at t=%.16e.\n",t0);
-
-
- lasagna_call((*derivs)(t0,y+1,f0+1,parameters_and_workspace_for_derivs,error_message),error_message,error_message);
+  lasagna_call((*derivs)(t0,
+			 y+1,
+			 f0+1,
+			 parameters_and_workspace_for_derivs,
+			 error_message),
+	       error_message,error_message);
   stepstat[2] +=1;
 
   t = t0;
   nfenj=0;
-  lasagna_call(numjac((*derivs),t,y,f0,&jac,&nj_ws,abstol,neq,
-		      &nfenj,parameters_and_workspace_for_derivs,error_message),
+  lasagna_call(numjac((*derivs),
+		      t,
+		      y,
+		      f0,
+		      &jac,
+		      &nj_ws,
+		      abstol,
+		      neq,
+		      &nfenj,
+		      parameters_and_workspace_for_derivs,
+		      error_message),
 	       error_message,error_message);
   stepstat[3] += 1;
   stepstat[2] += nfenj;
@@ -323,7 +334,8 @@ for(ii=1;ii<=neq;ii++){
     }
 
     jac.pattern_supplied = _TRUE_;
-    printf("Calling numjac... next = %d\n",next);
+    jac.use_sparse = _TRUE_;
+    
     lasagna_call(numjac((*derivs),
 			t,
 			y,
@@ -1153,11 +1165,20 @@ int ludcmp(double **a, int n, int *indx, double *d, double *vv){
 /* "initialize_numjac_workspace", "uninitialize_numjac_workspace".		*/
 /**********************************************************************/
 int numjac(
-	   int (*derivs)(double x, double * y,double * dy, 
-			 void * parameters_and_workspace, ErrorMsg error_message),
-	   double t, double *y, double *fval,
-	   struct jacobian *jac, struct numjac_workspace *nj_ws,
-	   double thresh, int neq, int *nfe, void * parameters_and_workspace_for_derivs,
+	   int (*derivs)(double x, 
+			 double * y,
+			 double * dy, 
+			 void * parameters_and_workspace, 
+			 ErrorMsg error_message),
+	   double t, 
+	   double *y, 
+	   double *fval,
+	   struct jacobian *jac, 
+	   struct numjac_workspace *nj_ws,
+	   double thresh, 
+	   int neq, 
+	   int *nfe, 
+	   void * parameters_and_workspace_for_derivs,
 	   ErrorMsg error_message){
   /*	Routine that computes the jacobian numerically. It is based on the numjac 
 	implementation in MATLAB, but a feature for recognising sparsity in the
@@ -1223,7 +1244,9 @@ int numjac(
   }
 
   /* Sparse calculation?*/
-  if ((jac->pattern_supplied==_TRUE_)||((jac->use_sparse)&&(jac->repeated_pattern >= jac->trust_sparse))){
+  if ((jac->pattern_supplied==_TRUE_)||
+      ((jac->use_sparse == _TRUE_)&&
+       (jac->repeated_pattern >= jac->trust_sparse))){
     //printf("Sparse calculation..neq=%d, has grouping=%d\n",neq,jac->has_grouping);
     //printf("jac->pattern_supplied = %d\n",jac->pattern_supplied);
     /* Everything done sparse'ly. Do we have a grouping? */
@@ -1232,7 +1255,7 @@ int numjac(
       jac->has_grouping = 1;
     }
     colmax = jac->max_group+1;
-    printf("->groups=%d/%d.\n",colmax,neq);
+    //printf("->groups=%d/%d.\n",colmax,neq);
     for(j=1;j<=colmax;j++){
       /*loop over groups */
       group = j-1;
@@ -1246,7 +1269,7 @@ int numjac(
     }
   }
   else{
-    printf("\n Normal calculation...");
+    //printf("Normal calculation...\n");
     /*Normal calculation: */
     colmax = neq;
     for(j=1;j<=neq;j++){
@@ -1263,9 +1286,12 @@ int numjac(
     for(i=1;i<=neq;i++){
       nj_ws->yydel[i] = nj_ws->ydel_Fdel[i][j];
     }
-    lasagna_call((*derivs)(t,nj_ws->yydel+1,nj_ws->ffdel+1,
-			 parameters_and_workspace_for_derivs,error_message),
-	       error_message,error_message);
+    lasagna_call((*derivs)(t,
+			   nj_ws->yydel+1,
+			   nj_ws->ffdel+1,
+			   parameters_and_workspace_for_derivs,
+			   error_message),
+		 error_message,error_message);
 
     *nfe+=1;
     for(i=1;i<=neq;i++) 
@@ -1411,11 +1437,15 @@ int numjac(
       }
     }
   }
-  /* If use_sparse is true but I still don't trust the sparsity pattern, go through the full calculated jacobi-
-     matrix, deduce the sparsity pattern, compare with the old pattern, and write the new sparse Jacobi matrix.
-     If I do this cleverly, I only have to walk through the jacobian once, and I don't need any local storage.*/
-
-  if ((jac->use_sparse)&&(jac->pattern_supplied==_FALSE_)&&(jac->repeated_pattern < jac->trust_sparse)){
+  /** If use_sparse is true but I still don't trust the sparsity pattern, 
+      go through the full calculated jacobi-matrix, deduce the sparsity 
+      pattern, compare with the old pattern, and write the new sparse 
+      Jacobi matrix. If I do this in a clever way, I only have to walk 
+      through the jacobian once, and I don't need any local storage.
+  */
+  if ((jac->use_sparse)&&
+      (jac->pattern_supplied==_FALSE_)&&
+      (jac->repeated_pattern < jac->trust_sparse)){
     nz=0; /*Number of non-zeros */
     Ap[0]=0; /*<-Always is.. */
     pattern_broken = _FALSE_;
@@ -1486,12 +1516,13 @@ int numjac(
 	jac->repeated_pattern = 0;
       }
       jac->has_pattern = 1;
-      jacfile=fopen("jac_num_Ap.dat","w");
+      /**      jacfile=fopen("jac_num_Ap.dat","w");
       for (i=0; i<=neq; i++) fprintf(jacfile,"%d ",Ap[i]);
       fclose(jacfile);
       jacfile=fopen("jac_num_Ai.dat","w");
       for (i=0; i<Ap[neq]; i++) fprintf(jacfile,"%d ",Ai[i]);
       fclose(jacfile);
+      */
     }
   }
   return _SUCCESS_;

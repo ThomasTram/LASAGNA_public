@@ -76,7 +76,7 @@ int evolver_radau5(
   int newt_iter_max = 10, verbose=2;
 
   int stepstat[6] = {0, 0, 0, 0, 0, 0};
-  int newt_iter, tdir, next, nfenj;
+  int newt_iter, tdir, next=0, nfenj;
   double abshlast=0.0, absh, abshnew; 
   double theta, theta_k, theta_k_old=1.0, eta=1.0, conv_est, conv_cor;
   double t, ti, tdel, h, abshmin, rh;
@@ -255,6 +255,7 @@ int evolver_radau5(
       jac.spJ->Ai[i] = Ai[i];
     }
     jac.pattern_supplied = _TRUE_;
+    jac.use_sparse = _TRUE_;
     lasagna_call(numjac((*derivs),
 			t,
 			y0-1,
@@ -530,7 +531,7 @@ int evolver_radau5(
     else{  
       //Step accepted!
       //printf("Step accepted!\n");
-      if (verbose>4)
+      if (verbose>1)
 	printf("%.16e %.16e\n",
 		t,h);
       stepstat[0]++;
