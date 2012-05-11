@@ -21,7 +21,7 @@ int evolver_rk45(
   double *dy,*err,*ynew,*ytemp, *ki;
   double h,errmax,errtemp,hmin,hnew;
   double t;
-  int tdir, i, j, k, idx;
+  int tdir, i, j, k, idx=0;
   double ci[6];
   double bi[6];
   double bi_diff[6];
@@ -272,7 +272,7 @@ int evolver_rkdp45(
   double *dy,*err,*ynew,*ytemp, *ki;
   double h,absh,hmax,errmax,errtemp,hmin,hnew;
   double t,tnew;
-  int tdir, i, j, k, idx;
+  int tdir, i, j, k, idx=0;
   int s=7;
   double ci[s];
   double bi[s];
@@ -428,7 +428,7 @@ int evolver_rkdp45(
       //Step accepted.
       stats[0]++;
       if (print_variables!=NULL){
-	print_variables(tnew,ynew,ki+6*neq,ppaw,error_message); 
+	print_variables(t+h,ynew,ki+6*neq,ppaw,error_message); 
       }
       if (verbose>1)
 	printf("Step accepted. t=%g, h=%g\n",t,h);

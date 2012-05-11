@@ -350,51 +350,8 @@ int nonlinear_rhs_jac(double *y, double **jac, void *param){
   return _SUCCESS_;
 }
 
+
 int qke_initial_conditions(double Ti, double *y, qke_param *pqke){
-  /** Set initial conditions at temperature Ti: */
-  int i;
-  ErrorMsg error_message;
-  double x, *dy;
-  double Vx,D,Vz,Vz_bar,Px,Py,Px_bar,Py_bar;
-  /** Calculate chemical potential from initial L:
-  mu_div_T = -2*_PI_/sqrt(3.0)*
-      sinh(1.0/3.0*asinh(-18.0*sqrt(3.0)*_ZETA3_*pqke->L_initial/pow(_PI_,3)));
-  */
-
-  //Assuming y is calloc'ed -- dangerous, better to zero it.
-  for (i=0; i<pqke->neq; i++) y[i] = 0.0;
-
-  //Set standard equilibrium initial conditions:
-  y[pqke->index_L] = pqke->L_initial/_L_SCALE_;
-  for (i=0; i<pqke->vres; i++)
-    y[pqke->index_Pa_plus+i] = 4.0;
-  
-  dy = malloc(sizeof(double)*pqke->neq);
-  qke_derivs(Ti,y,dy,pqke,error_message);
-  for (i=0; i<pqke->vres; i++){
-    x = pqke->x_grid[i];
-    Vx = pqke->Vx/x;
-    Vz = pqke->V0/x + pqke->V1*x + pqke->VL;
-    Vz_bar = pqke->V0/x + pqke->V1*x - pqke->VL;
-    D = 0.5*pqke->C_alpha*_G_F_*_G_F_*x*pow(Ti,5);
-
-    Px = Vx*Vz/(D*D+Vz*Vz);
-    Px_bar = Vx*Vz_bar/(D*D+Vz_bar*Vz_bar);
-    Py = -Vx*D/(D*D+Vz*Vz);
-    Py_bar = -Vx*D/(D*D+Vz_bar*Vz_bar);
-
-    //continue;
-    y[pqke->index_Px_plus+i] =  Px + Px_bar;
-    y[pqke->index_Px_minus+i] = Px - Px_bar;
-    y[pqke->index_Py_plus+i] = Py + Py_bar;
-    y[pqke->index_Py_minus+i] = Py - Py_bar;
- 
-  }
-  free(dy);
-  return _SUCCESS_;
-};
-
-int qke_initial_conditions_fixed_grid(double Ti, double *y, qke_param *pqke){
   /** Set initial conditions at temperature Ti: */
   int i;
   ErrorMsg error_message;
@@ -580,15 +537,16 @@ int qke_stop_at_L(double t,
 		  void *param,
 		  ErrorMsg error_message){
   qke_param *pqke=param;
-  if (y[pqke->index_L]*_L_SCALE_ <= pqke->L_final){
+  if (fabs(y[pqke->index_L]*_L_SCALE_) >= pqke->L_final){
     printf("Value stop..\n");
     return _TRUE_;
   }
-  else if((y[pqke->index_L] != 0.0)&&
+  /**  else if((y[pqke->index_L] != 0.0)&&
 	  (dy[pqke->index_L]/y[pqke->index_L]>pqke->trigger_dLdT_over_L)){
     printf("Trigger stop..\n");
     return _TRUE_;
   }
+  */
   else{
     return _FALSE_;
   }
@@ -650,6 +608,16 @@ int qke_print_variables(double T,
   return _SUCCESS_;
 };
 
+int qke_print_L(double T,
+			double *y,
+			double *dy,
+			void *param,
+			ErrorMsg error_message){
+
+  qke_param *pqke=param;
+  fprintf(stderr,"%.16e %.16e\n",1e3*T,y[pqke->index_L]*_L_SCALE_);
+  return _SUCCESS_;
+}
 int get_integrated_quantities(double *y,
 			      qke_param *pqke,
 			      double *I_VxPy_minus,
@@ -701,7 +669,11 @@ int get_parametrisation(double T,qke_param *pqke, ErrorMsg error_message){
   }
   
   //Establish guess and set maximum steps for Newton method:
-  if (pqke->guess_exists == _FALSE_){
+  /** This has been a very hard 'bug' to trace: Some of the evolvers rely
+      on the derivative function to give exactly the same output for the same
+      inputs, so making a non-deterministic guess here spoils this!
+  */
+  if (1==1){//(pqke->guess_exists == _FALSE_){
     y_0[0] = 1.0 - alpha;
     maxstep[0] = 100.0;
     for (i=1; i<=pqke->Nres; i++){

@@ -44,9 +44,9 @@ int main(int argc, char **argv) {
     generic_evolver = evolver_rkdp45;
   }
   
-  qke_initial_conditions_fixed_grid(qke_struct.T_initial, 
-				    y_inout, 
-				    &qke_struct);
+  qke_initial_conditions(qke_struct.T_initial, 
+			 y_inout, 
+			 &qke_struct);
   
   qke_init_output(&qke_struct);
 

@@ -1503,6 +1503,7 @@ int numjac(
       if (jac->use_sparse==_FALSE_) break;
       Ap[j]=nz;
     }
+    printf("nz's = %d / %d, use_sparse = %d\n",nz,jac->max_nonzero,jac->use_sparse);
     if (jac->use_sparse==_TRUE_){
       if ((jac->has_pattern==_TRUE_)&&(pattern_broken==_FALSE_)){
 	/*New jacobian fitted into the current sparsity pattern:*/

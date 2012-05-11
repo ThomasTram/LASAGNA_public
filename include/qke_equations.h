@@ -115,7 +115,6 @@ extern "C" {
   int free_qke_param(qke_param *pqke);
   //Set or copy initial conditions:
   int qke_initial_conditions(double Ti, double *y, qke_param *pqke);
-  int qke_initial_conditions_fixed_grid(double Ti, double *y, qke_param *pqke);
   //Handle binary output:
   int qke_init_output(qke_param *pqke);
   int qke_store_output(double t,
@@ -131,6 +130,11 @@ extern "C" {
 			  double *dy,
 			  void *pqke,
 			  ErrorMsg error_message);
+  int qke_print_L(double t,
+		  double *y,
+		  double *dy,
+		  void *pqke,
+		  ErrorMsg error_message);
   //Stop conditions:
   int qke_stop_at_L(double t,
 		    double *y,

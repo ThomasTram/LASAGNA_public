@@ -54,39 +54,34 @@ int arrays_spline_interpolate(double *xa,
   }
   else{
     //move klo such that it x is after xa[klo] in table:
-    for (kk=1; klo==0;kk *=2){
-      if ((x-xa[klo])*xdir<0.0)
-	klo = max(klo-kk,0);
-      else
-	break;
+    for (kk=1; (x-xa[klo])*xdir<0.0;kk *=2){
+      klo = max(klo-kk,0);    
     }
   }
+
   if ((khi<0)||(khi>n)){
     //khi out of bounds
     khi = n-1;
   }
   else{
     //move khi such that x is before x[khi] in table:
-    for (kk=1; khi==n-1;kk *=2){
-      if ((xa[khi]-x)*xdir<0.0)
-	khi = min(khi+kk,n-1);
-      else
-	break;
-    }
+    for (kk=1; (xa[khi]-x)*xdir<0.0;kk *=2){
+      khi = min(khi+kk,n-1);    
+    }    
   }
   
   //printf("Is x=%g in x[%d]=%g -> x[%d]=%g.",
   // x,klo,xa[klo],khi,xa[khi]);
-    //Do bisection to find bounds:
+  //Do bisection to find bounds:
   while ((khi-klo)>1){
     k = (khi+klo) >> 1; //Divide by 2 using bit shift
     if ((xa[k] - x)*xdir>0.0) khi = k;
     else klo = k;
   }
-    h = xa[khi]-xa[klo];
-    a = (xa[khi]-x)/h;
-    b = (x-xa[klo])/h;
-    *y = a*ya[klo]+b*ya[khi] + ((a*a*a-a)*d2ya[klo]+(b*b*b-b)*d2ya[khi])*(h*h)/6.0;
+  h = xa[khi]-xa[klo];
+  a = (xa[khi]-x)/h;
+  b = (x-xa[klo])/h;
+  *y = a*ya[klo]+b*ya[khi] + ((a*a*a-a)*d2ya[klo]+(b*b*b-b)*d2ya[khi])*(h*h)/6.0;
 
   return _SUCCESS_;
 }
