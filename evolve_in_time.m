@@ -21,62 +21,73 @@ close all;
 %filename = 'd:\Shared\lasagna_svn\te_IH_0_ndf\dump_004_008.mat'
 %filename = 'd:\Shared\lasagna_svn\te_IH_0_ndf\dump_008_004.mat'
 
-filename = 'd:\Shared\chaos\dump_004_008.mat'
+%filename = 'd:\Shared\chaos\dump_004_008.mat'
 %filename = 'd:\Shared\chaos\test_004_008.mat'
+filename = 'output/no_chaos2_rs0p1_Ti_14p5.mat';
+filename = 'output/dump.mat';
 
-S = load(filename,'T','L','x_grid','Ps_plus','Ps_minus','Pa_plus','Pa_minus',...
-    'Py_plus','Py_minus','xi','alpha_rs','delta_m2_theta_zero','xi');
+S = load(filename,'T_vec','L_vec','x_grid','Ps_plus','Ps_minus','Pa_plus','Pa_minus',...
+    'Py_plus','Py_minus','xi_vec','alpha_rs','delta_m2_theta_zero','xi_vec','v_grid');
 
-mask = S.T~=0;
+mask = S.T_vec~=0;
 last_idx = sum(mask);
 
 follow_index = 24;
 speed = 1;
 start_at = 1;%1598;
 count = 1;
+xlimits = [0 10];
 
 sqrtstuff = sqrt(cos(2*S.delta_m2_theta_zero(2))*abs(S.delta_m2_theta_zero(1))*1e18/2);
 for i=start_at:speed:last_idx
-    x0 = 1.812e4*(S.T(i)*1e3)^(-3)*sqrtstuff;
+    x0 = 1.812e4*(S.T_vec(i)*1e3)^(-3)*sqrtstuff;
     
     x_grid = sqrt(S.x_grid(:,i)-1e-12);
+    %x_grid = S.v_grid(:,i);
     %xi = sqrt([S.xi(:,i),S.xi(:,i)]);
     xi = sqrt([x0,x0;x0,x0]);
     subplot(3,3,1)
     plot(x_grid,S.Ps_plus(:,i),'LineWidth',2)
+    xlim(xlimits);
     hold on; 
         plot(xi(1,:),ylim, xi(2,:),ylim);
         plot(x_grid(follow_index),S.Ps_plus(follow_index,i),'r*');
     hold off
-    title({['Temperature: ',num2str(S.T(i)*1e3,4),'MeV.'];...
-        ['L = ',num2str(S.L(i))];...
+    title({['Temperature: ',num2str(S.T_vec(i)*1e3,4),'MeV.'];...
+        ['L = ',num2str(S.L_vec(i))];...
         'Ps^+'})
     subplot(3,3,4)
     plot(x_grid,S.Ps_minus(:,i),'LineWidth',2)
+    xlim(xlimits);
     hold on; plot(xi(1,:),ylim, xi(2,:),ylim);hold off
     title('Ps^-')
     subplot(3,3,2)
     plot(x_grid,S.Py_plus(:,i),'LineWidth',2)
+    xlim(xlimits);
     hold on; plot(xi(1,:),ylim, xi(2,:),ylim);hold off
     title('Py^+')
     subplot(3,3,5)
     plot(x_grid,S.Py_minus(:,i),'LineWidth',2)
+    xlim(xlimits);
     hold on; plot(xi(1,:),ylim, xi(2,:),ylim);hold off
     title('Py^-')
     subplot(3,3,3)
     plot(x_grid,S.Pa_plus(:,i),'LineWidth',2)
+    xlim(xlimits);
     hold on; 
         plot(xi(1,:),ylim, xi(2,:),ylim);
     hold off
     title('Pa^+')
     subplot(3,3,6)
     plot(x_grid,S.Pa_minus(:,i),'LineWidth',2)
+    xlim(xlimits);
     hold on; 
         plot(xi(1,:),ylim, xi(2,:),ylim);
     hold off
     title('Pa^-')
     subplot(3,3,7)
     plot(x_grid,0.5*(S.Pa_plus(:,i)+S.Pa_minus(:,i)),'LineWidth',2)
+    xlim(xlimits);
     hold on; 
         plot(xi(1,:),ylim, xi(2,:),ylim);
     hold off
@@ -88,12 +99,15 @@ for i=start_at:speed:last_idx
     hold on; 
         plot(xi(1,:),ylim, xi(2,:),ylim);
     hold off
+    xlim(xlimits);
     ylim([-1,5])
     title('Pa bar')
     %
     subplot(3,3,9)
     plot(x_grid,0.5*(S.Ps_minus(:,i)+S.Ps_plus(:,i)),'LineWidth',2)
+    xlim(xlimits);
     hold on; plot(xi(1,:),ylim, xi(2,:),ylim);hold off
+    xlim(xlimits);
     ylim([-1,5])
     title('Ps')
    
@@ -120,12 +134,13 @@ for i=start_at:speed:last_idx
     n_s_bar(count) = P/R;
     Neff(count) = I1;
     Neff2(count) = I2;
-    L1(count) = S.L(i);
+    L1(count) = S.L_vec(i);
     L2(count) = M/N; %/(8*zeta(3));
-    Tvec(count) = S.T(i)*1e3;
+    Tvec(count) = S.T_vec(i)*1e3;
     count = count + 1;
     %pause
 end
+
 figure
 plot(Tvec,Neff,Tvec,Neff2)
 set(gca,'Xdir','reverse')

@@ -20,6 +20,7 @@ typedef struct qke_param_structure{
   double rtol;   //Relative tolerance of integrator
   double abstol; //Absolute tolerance of integrator
   double alpha;  //Sampling density aound resonances (0=most dense, 1=uniform)
+  double rs;
   double T_initial; //Initial temperature
   double T_final; //Final temperature
   double *Tvec;  //Temperature vector (Tvec[Tres])
@@ -171,6 +172,7 @@ extern "C" {
 				qke_param *pqke,
 				double *I_VxPy_minus,
 				double *I_f0Pa_plus,
+				double *I_rho_ss,
 				ErrorMsg error_message);
   int get_parametrisation(double T,qke_param *pqke, ErrorMsg error_message);
   int get_partial_derivatives(double T,

@@ -116,10 +116,17 @@ int init_qke_param(qke_param *pqke){
     for (k=max(0,j-1); k<min(vres,j+2); k++)
       J[pqke->index_Ps_plus+j][pqke->index_Ps_plus+k] = 1;
     J[pqke->index_Ps_plus+j][pqke->index_Py_plus+j] = 1;
+    //R_nus_plus dependence:
+    for (k=0; k<vres; k++){
+      J[pqke->index_Ps_plus+j][pqke->index_Ps_minus+k] = 1;
+      J[pqke->index_Ps_plus+j][pqke->index_Ps_plus+k] = 1;
+    }
     //F-Ps_minus[j] dependence:
     for (k=max(0,j-1); k<min(vres,j+2); k++)
       J[pqke->index_Ps_minus+j][pqke->index_Ps_minus+k] = 1;
     J[pqke->index_Ps_minus+j][pqke->index_Py_minus+j] = 1;
+    //R_nus_minus dependence:
+    J[pqke->index_Ps_minus+j][pqke->index_Pa_minus+j] = 1;
     //F-Px_plus[j] dependence:
     for (k=max(0,j-1); k<min(vres,j+2); k++)
       J[pqke->index_Px_plus+j][pqke->index_Px_plus+k] = 1;
@@ -432,18 +439,18 @@ int qke_init_output(qke_param *pqke){
   mat_add_matrix(outf,"u_grid",miDOUBLE,Tres,vres,&(pqke->u_grid_handle));
   mat_add_matrix(outf,"v_grid",miDOUBLE,Tres,vres,&(pqke->v_grid_handle));
   //Add resonance dependent matrices:
-  mat_add_matrix(outf,"xi",miDOUBLE,Tres,Nres,&(pqke->xi_handle));
-  mat_add_matrix(outf,"ui",miDOUBLE,Tres,Nres,&(pqke->ui_handle));
-  mat_add_matrix(outf,"vi",miDOUBLE,Tres,Nres,&(pqke->vi_handle));
+  mat_add_matrix(outf,"xi_vec",miDOUBLE,Tres,Nres,&(pqke->xi_handle));
+  mat_add_matrix(outf,"ui_vec",miDOUBLE,Tres,Nres,&(pqke->ui_handle));
+  mat_add_matrix(outf,"vi_vec",miDOUBLE,Tres,Nres,&(pqke->vi_handle));
   mat_add_matrix(outf,"b_a_vec",miDOUBLE,Tres,(1+Nres),&(pqke->b_a_vec_handle));
   //Add other matrices:
-  mat_add_matrix(outf,"L",miDOUBLE,Tres,1,&(pqke->L_handle));
-  mat_add_matrix(outf,"T",miDOUBLE,Tres,1,&(pqke->T_handle));
+  mat_add_matrix(outf,"L_vec",miDOUBLE,Tres,1,&(pqke->L_handle));
+  mat_add_matrix(outf,"T_vec",miDOUBLE,Tres,1,&(pqke->T_handle));
   mat_add_matrix(outf,"I_conserved",miDOUBLE,Tres,1,&(pqke->I_conserved_handle));
-  mat_add_matrix(outf,"V0",miDOUBLE,Tres,1,&(pqke->V0_handle));
-  mat_add_matrix(outf,"V1",miDOUBLE,Tres,1,&(pqke->V1_handle));
-  mat_add_matrix(outf,"Vx",miDOUBLE,Tres,1,&(pqke->Vx_handle));
-  mat_add_matrix(outf,"VL",miDOUBLE,Tres,1,&(pqke->VL_handle));
+  mat_add_matrix(outf,"V0_vec",miDOUBLE,Tres,1,&(pqke->V0_handle));
+  mat_add_matrix(outf,"V1_vec",miDOUBLE,Tres,1,&(pqke->V1_handle));
+  mat_add_matrix(outf,"Vx_vec",miDOUBLE,Tres,1,&(pqke->Vx_handle));
+  mat_add_matrix(outf,"VL_vec",miDOUBLE,Tres,1,&(pqke->VL_handle));
   //Add constant parameters:
   mat_add_matrix(outf,"L_initial",miDOUBLE,1,1,&handle);
   mat_add_matrix(outf,"delta_m2_theta_zero",miDOUBLE,1,2,&handle);
@@ -463,6 +470,8 @@ int qke_init_output(qke_param *pqke){
   tmp_array[0] = pqke->xmin; tmp_array[1] = pqke->xext; 
   tmp_array[2] = pqke->xmax;
   mat_write_data(outf,"xmin_xext_xmax",tmp_array,0,3);
+  tmp_array[0] = pqke->alpha; tmp_array[1] = pqke->rs;
+  mat_write_data(outf,"alpha_rs",tmp_array,0,2);
   return _SUCCESS_;
 }
 
@@ -622,14 +631,16 @@ int get_integrated_quantities(double *y,
 			      qke_param *pqke,
 			      double *I_VxPy_minus,
 			      double *I_f0Pa_plus,
+			      double *I_rho_ss,
 			      ErrorMsg error_message){
   int i;
   double w_trapz, x, x2, f0, Vx;
-  double Py_minus, Pa_plus;
+  double Py_minus, Pa_plus, Ps_plus_Ps_minus;
 			      
   /** Integrated quantities needed. We integrate in x space: */
   *I_VxPy_minus = 0.0;
   *I_f0Pa_plus = 0.0;
+  *I_rho_ss = 0.0;
   for (i=0; i<pqke->vres; i++){
     if (i==0)
       w_trapz = 0.5*(pqke->x_grid[i+1]-pqke->x_grid[i]);
@@ -643,9 +654,11 @@ int get_integrated_quantities(double *y,
     Vx = pqke->Vx/x;
     Py_minus = y[pqke->index_Py_minus+i];
     Pa_plus = y[pqke->index_Pa_plus+i];
+    Ps_plus_Ps_minus = (y[pqke->index_Ps_plus+i] + y[pqke->index_Ps_minus+i]);
       
     *I_VxPy_minus += w_trapz*(x2*f0*Vx*Py_minus);
     *I_f0Pa_plus += w_trapz*(x2*f0*Pa_plus);
+    *I_rho_ss += w_trapz*(x2*f0*Ps_plus_Ps_minus); //From equation 2.18 in KS01.
   }
   return _SUCCESS_;
 }
@@ -861,8 +874,9 @@ int qke_derivs(double T,
   double x;
   double Gamma, D, V0, V1, Pa_plus, Pa_minus, Ps_plus, Ps_minus;
   double Px_plus, Px_minus, Py_plus, Py_minus, f0,  mu_div_T;
-  double feq_plus, feq_minus, I_VxPy_minus, I_f0Pa_plus;
+  double feq_plus, feq_minus, I_VxPy_minus, I_f0Pa_plus, I_rho_ss;
   double dudTdvdu, delta_v;
+  double rs;
   int idx, stencil_method;
   double n_plus = 2.0;
   double dLdT;
@@ -896,6 +910,7 @@ int qke_derivs(double T,
 					 pqke,
 					 &I_VxPy_minus,
 					 &I_f0Pa_plus,
+					 &I_rho_ss,
 					 error_message),
 	       error_message,error_message);
    
@@ -941,9 +956,17 @@ int qke_derivs(double T,
     Py_plus = y[pqke->index_Py_plus+i];
     Py_minus = y[pqke->index_Py_minus+i];
   
+    //Regulator for sterile population:
+    rs = pqke->rs;
     //Distributions:
     feq_plus = 1.0/(1.0+exp(x-mu_div_T))+1.0/(1.0+exp(x+mu_div_T));
-    feq_minus = 1.0/(1.0+exp(x-mu_div_T))-1.0/(1.0+exp(x+mu_div_T));
+    //Use an expansion for feq_minus since mu_div_T is very small.
+    feq_minus = exp(x)*2*mu_div_T/(1+exp(x-mu_div_T))/(1+exp(x+mu_div_T));
+    //Use the unexpanded expression if the error grows too large.
+    if(exp(x+mu_div_T)/6*pow(mu_div_T,3)/(1+exp(x-mu_div_T))/
+       (1+exp(x+mu_div_T))/feq_minus > 1e-10)
+      feq_minus = 1.0/(1.0+exp(x-mu_div_T))-1.0/(1.0+exp(x+mu_div_T));
+
     f0 = 1.0/(1.0+exp(x));
 
     dudTdvdu = dudT_grid[i]*dvdu_grid[i];
@@ -969,13 +992,15 @@ int qke_derivs(double T,
       dudTdvdu*drhodv(y, delta_v, idx, stencil_method);
 
     idx = pqke->index_Ps_plus+i;
-    dy[idx] = 1.0/(H*T)*Vx*Py_plus+
+    dy[idx] = 1.0/(H*T)*(Vx*Py_plus - rs*Gamma*(1.0/(6.0*_ZETA3_)*I_rho_ss*
+						feq_plus-0.5*f0*Ps_plus)) +
       dudTdvdu*drhodv(y, delta_v, idx, stencil_method);
-    
+
     idx = pqke->index_Ps_minus+i;
-    dy[idx] = 1.0/(H*T)*Vx*Py_minus+
+    dy[idx] = 1.0/(H*T)*(Vx*Py_minus-rs*Gamma*f0*
+			 (1.0-0.5*(Pa_minus+Ps_minus))) +
       dudTdvdu*drhodv(y, delta_v, idx, stencil_method);
-    
+
     idx = pqke->index_Px_plus+i;
     dy[idx] = 1.0/(H*T)*((V0+V1)*Py_plus+VL*Py_minus+D*Px_plus)+
       dudTdvdu*drhodv(y, delta_v, idx, stencil_method);
@@ -1013,7 +1038,8 @@ int qke_derivs_fixed_grid(double T,
   double f0,  mu_div_T;
   double Pa_plus,Pa_minus,Ps_plus,Ps_minus;
   double Px_plus,Px_minus,Py_plus,Py_minus;
-  double feq_plus, feq_minus, I_VxPy_minus, I_f0Pa_plus;
+  double feq_plus, feq_minus, I_VxPy_minus, I_f0Pa_plus, I_rho_ss;
+  double rs;
   int idx;
   double dLdT;
  
@@ -1039,6 +1065,7 @@ int qke_derivs_fixed_grid(double T,
 					 pqke,
 					 &I_VxPy_minus,
 					 &I_f0Pa_plus,
+					 &I_rho_ss,
 					 error_message),
 	       error_message,error_message);
 
@@ -1077,6 +1104,8 @@ int qke_derivs_fixed_grid(double T,
     Py_plus = y[pqke->index_Py_plus+i];
     Py_minus = y[pqke->index_Py_minus+i];
    
+    //Regulator for sterile population:
+    rs = pqke->rs;
     //Distributions:
     feq_plus = 1.0/(1.0+exp(x-mu_div_T))+1.0/(1.0+exp(x+mu_div_T));
     feq_minus = 1.0/(1.0+exp(x-mu_div_T))-1.0/(1.0+exp(x+mu_div_T));
@@ -1089,10 +1118,12 @@ int qke_derivs_fixed_grid(double T,
     dy[idx] = -1.0/(H*T)*(Vx*Py_minus+Gamma*(2.0*feq_minus/f0-Pa_minus));
 
     idx = pqke->index_Ps_plus+i;
-    dy[idx] = 1.0/(H*T)*Vx*Py_plus;
+    dy[idx] = 1.0/(H*T)*(Vx*Py_plus - rs*Gamma*(1.0/(6.0*_ZETA3_)*I_rho_ss*
+					       feq_plus-0.5*f0*Ps_plus));
     
     idx = pqke->index_Ps_minus+i;
-    dy[idx] = 1.0/(H*T)*Vx*Py_minus;
+    dy[idx] = 1.0/(H*T)*(Vx*Py_minus-rs*Gamma*f0*
+			 (1.0-0.5*(Pa_minus+Ps_minus)));
     
     idx = pqke->index_Px_plus+i;
     dy[idx] = 1.0/(H*T)*((V0+V1)*Py_plus+VL*Py_minus+D*Px_plus);

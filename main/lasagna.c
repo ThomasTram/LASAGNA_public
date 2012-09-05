@@ -52,6 +52,7 @@ int main(int argc, char **argv) {
 
   qke_init_output(&qke_struct);
 
+  printf("theta: %g\n",qke_struct.theta_zero);
   start = clock();  
     func_return = generic_evolver(qke_derivs,
 				  qke_struct.T_initial,
@@ -68,7 +69,7 @@ int main(int argc, char **argv) {
 				  qke_struct.Ai,
 				  qke_store_output,
 				  qke_print_L,//NULL,
-				  qke_stop_at_L,
+				  NULL,//qke_stop_at_L,
 				  error_message);
   
   end = clock();

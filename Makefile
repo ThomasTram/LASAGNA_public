@@ -28,6 +28,8 @@ LDFLAG   = -O4 -Wall -g --fast-math
 #LDFLAG   = -fast -w2
 #CCFLAG   = -complex-limited-range -g -O3 -B/usr/lib/i386-linux-gnu -I/usr/include/i386-linux-gnu
 #LDFLAG   = -complex-limited-range -g -O3 -B/usr/lib/i386-linux-gnu -I/usr/include/i386-linux-gnu
+CCFLAG   = -O4 -Wall -g -pg -ggdb --fast-math
+LDFLAG   = -O4 -Wall -g -pg -ggdb --fast-math
 
 
 INCLUDES = ../include
