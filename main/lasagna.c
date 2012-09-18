@@ -28,6 +28,16 @@ int main(int argc, char **argv) {
     return _FAILURE_;
   }
 
+  //Dump jacobian pattern:
+  FILE *jacfile=fopen("jac_anal_Ap.dat","w");
+  for (i=0; i<=qke_struct.neq; i++) fprintf(jacfile,"%d ",qke_struct.Ap[i]);
+  fclose(jacfile);
+  jacfile=fopen("jac_anal_Ai.dat","w");
+  for (i=0; i<qke_struct.Ap[qke_struct.neq]; i++) fprintf(jacfile,"%d ",qke_struct.Ai[i]);
+  fclose(jacfile);
+
+  return 0;
+
   /** Do stuff */
   y_inout = calloc(qke_struct.neq,sizeof(double));
   interp_idx = malloc(sizeof(int)*qke_struct.neq);
@@ -51,6 +61,7 @@ int main(int argc, char **argv) {
 
 
   qke_init_output(&qke_struct);
+
 
   printf("theta: %g\n",qke_struct.theta_zero);
   start = clock();  
