@@ -350,17 +350,24 @@ int evolver_radau5(
 	    I*(rhs[2*neq+i]-beta*W[neq+i]-alpha*W[2*neq+i]);
 	}
 	//Use backsubstitution to calculate delta W:
-	if (jac.lu_pack == sparse){
+	switch(jac.lu_pack){
+	case sparse:
 	  sp_lusolve(jac.Numerical, rhs, dW);
 	  sp_lusolve_cx(jac_plus.Numerical_cx, rhs_cx, delta_w_cx);
-	}
-	else{
+	  break;
+	case SuperLU:
+	  printf("WARNING SuperLU not implemented!(1)\n");
+	  sp_lusolve(jac.Numerical, rhs, dW);
+	  sp_lusolve_cx(jac_plus.Numerical_cx, rhs_cx, delta_w_cx);
+	  break;
+	case dense: default:
 	  for (i=0; i<neq; i++){
 	    dW[i] = rhs[i];
 	    delta_w_cx[i] = rhs_cx[i];
 	  }
 	  lubksb(jac.LU,neq,jac.luidx,dW-1);
 	  lubksb_cx(jac_plus.LU_cx,neq,jac_plus.luidx,delta_w_cx-1);
+	  break;
 	}
 	stepstat[5]+=1;
 	//Form dW:
@@ -452,13 +459,19 @@ int evolver_radau5(
 	}
 	got_ynew = _TRUE_;
 	// Solve for error err:
-	if (jac.lu_pack == sparse){
+	switch(jac.lu_pack){
+	case sparse:
 	  sp_lusolve(jac.Numerical, diff, err);
-	}
-	else{
+	  break;
+	case SuperLU:
+	  printf("WARNING SuperLU not implemented!!!(3)\n");
+	  sp_lusolve(jac.Numerical, diff, err);
+	  break;
+	case dense: default:
 	  for (i=0; i<neq; i++)
 	    err[i] = diff[i];
 	  lubksb(jac.LU,neq,jac.luidx,err-1);
+	  break;
 	}
 	//stepstat[5]+=1;
 	norm_err = error_norm(ynew, err, threshold, neq);
@@ -479,13 +492,19 @@ int evolver_radau5(
 	    diff[i] += (ftmp[i]-f0[i]);
 	  }
 	  //Solve for err again:
-	  if (jac.lu_pack == sparse){
+	  switch(jac.lu_pack){
+	  case sparse:
 	    sp_lusolve(jac.Numerical, diff, err);
-	  }
-	  else{
+	    break;
+	  case SuperLU:
+	    printf("WARNING SuperLU not implemented!!!(3)\n");
+	    sp_lusolve(jac.Numerical, diff, err);
+	    break;
+	  case dense: default:
 	    for (i=0; i<neq; i++)
 	      err[i] = diff[i];
 	    lubksb(jac.LU,neq,jac.luidx,err-1);
+	    break;
 	  }
 	  //stepstat[5]+=1;
 	  norm_err = error_norm(ynew, err, threshold, neq);
@@ -715,12 +734,13 @@ int initialize_jacobian_plus(struct jacobian *jac,
 	
   lasagna_alloc(jac_plus->luidx,sizeof(int)*neqp1,error_message);
 
-  if (jac->lu_pack == sparse){
+  switch(jac->lu_pack){
+  case sparse:
     lasagna_call(sp_num_alloc_cx(&jac_plus->Numerical_cx, neq,error_message),
 		 error_message,error_message);
 		
     lasagna_call(sp_mat_alloc_cx(&jac_plus->spJ_cx, neq, neq, jac->max_nonzero,
-			      error_message),error_message,error_message);
+				 error_message),error_message,error_message);
 
     /** Immediately free spJ_cx->Ai, spJ_cx->Ap and Numerical_cx->q, 
 	and set pointers to the corresponding locations in jac:
@@ -732,9 +752,29 @@ int initialize_jacobian_plus(struct jacobian *jac,
     jac_plus->spJ_cx->Ap = jac->spJ->Ap;
     jac_plus->Numerical_cx->q = jac->Numerical->q;
     jac_plus->sparse_stuff_initialised = _TRUE_;
-  }
-  else{
+    break;
+  case SuperLU:
+    printf("WARNING SuperLU not implemented!!!(4)\n");
+    lasagna_call(sp_num_alloc_cx(&jac_plus->Numerical_cx, neq,error_message),
+		 error_message,error_message);
+		
+    lasagna_call(sp_mat_alloc_cx(&jac_plus->spJ_cx, neq, neq, jac->max_nonzero,
+				 error_message),error_message,error_message);
+
+    /** Immediately free spJ_cx->Ai, spJ_cx->Ap and Numerical_cx->q, 
+	and set pointers to the corresponding locations in jac:
+    */
+    free(jac_plus->spJ_cx->Ai);
+    free(jac_plus->spJ_cx->Ap);
+    free(jac_plus->Numerical_cx->q);
+    jac_plus->spJ_cx->Ai = jac->spJ->Ai;
+    jac_plus->spJ_cx->Ap = jac->spJ->Ap;
+    jac_plus->Numerical_cx->q = jac->Numerical->q;
+    jac_plus->sparse_stuff_initialised = _TRUE_;
+    break;
+  case dense: default:
     jac_plus->sparse_stuff_initialised = _FALSE_;
+    break;
   }
   return _SUCCESS_;
 }
@@ -772,7 +812,8 @@ int new_linearisation_radau5(struct jacobian *jac,
   double luparity, *Ax;
   double complex *Az;
   int i,j,*Ap,*Ai,funcreturn;
-  if(jac->lu_pack == sparse){
+  switch(jac->lu_pack){
+  case sparse:
     Ap = jac->spJ->Ap; Ai = jac->spJ->Ai; Ax = jac->spJ->Ax;
     Az = jac_plus->spJ_cx->Ax;
     /* Construct jac->spJ->Ax from jac->xjac, the jacobian:*/
@@ -847,8 +888,87 @@ int new_linearisation_radau5(struct jacobian *jac,
 	sp_refactor_cx(jac_plus->Numerical_cx, jac_plus->spJ_cx);
       }
     }
-  }
-  else{
+    break;
+    
+  case SuperLU:
+    printf("WARNING: SuperLU is not implemented!!!(2)\n");
+    Ap = jac->spJ->Ap; Ai = jac->spJ->Ai; Ax = jac->spJ->Ax;
+    Az = jac_plus->spJ_cx->Ax;
+    /* Construct jac->spJ->Ax from jac->xjac, the jacobian:*/
+    for(j=0;j<neq;j++){
+      for(i=Ap[j];i<Ap[j+1];i++){
+	if(Ai[i]==j){
+	  /* I'm at the diagonal */
+	  Ax[i] = gamma-jac->xjac[i];
+	  Az[i] = alpha_ibeta-jac->xjac[i];
+	}
+	else{
+	  Ax[i] = -jac->xjac[i];
+	  Az[i] = -jac->xjac[i];
+	}
+      }
+    }
+    /* Matrix constructed... */
+    if (jac->pattern_supplied == _TRUE_){
+      //      if (jac->refactor_count%jac->refactor_max == 0){
+      if (jac->new_jacobian == _TRUE_){
+	//printf("Full calculation...\n");
+	//We should do a full LU decomposition again:
+	funcreturn = sp_ludcmp(jac->Numerical, jac->spJ, 1e-3);
+	lasagna_test(funcreturn == _FAILURE_,error_message,
+		     "Failure in sp_ludcmp. Possibly singular matrix!");
+	/** Column ordering in spJ_cx->Numerical is (should be) pointing 
+	    to column_ordering in spJ->Numerical.
+	    Same with Ai and Ap.
+	*/
+	funcreturn = sp_ludcmp_cx(jac_plus->Numerical_cx, jac_plus->spJ_cx, 1e-3);
+	lasagna_test(funcreturn == _FAILURE_,error_message,
+		     "Failure in sp_ludcmp_cx. Possibly singular matrix!");
+	jac->new_jacobian = _FALSE_;
+      }
+      else{
+	//printf("Refactorisation..\n");
+	sp_refactor(jac->Numerical, jac->spJ);
+	sp_refactor_cx(jac_plus->Numerical_cx, jac_plus->spJ_cx);
+      }
+      jac->refactor_count++;
+    }
+    else{
+      if((jac->new_jacobian==_TRUE_)&&(jac->repeated_pattern<1)){
+        /*I have a new pattern, and I have not done a LU decomposition 
+	  since the last jacobian calculation, so	I need to do a full 
+	  sparse LU-decomposition: */
+	/* Find the sparsity pattern C = J + J':*/
+	calc_C(jac);
+	/* Calculate the optimal ordering: */
+	sp_amd(jac->Cp, jac->Ci, neq, jac->cnzmax,
+	       jac->Numerical->q,jac->Numerical->wamd);
+	/* if the next line is uncomented, the code uses natural ordering instead of AMD ordering */
+	/*jac->Numerical->q = NULL;*/
+	funcreturn = sp_ludcmp(jac->Numerical, jac->spJ, 1e-3);
+	lasagna_test(funcreturn == _FAILURE_,error_message,
+		     "Failure in sp_ludcmp. Possibly singular matrix!");
+	/** Column ordering in spJ_cx->Numerical is (should be) pointing 
+	    to column_ordering in spJ->Numerical.
+	    Same with Ai and Ap.
+	*/
+	funcreturn = sp_ludcmp_cx(jac_plus->Numerical_cx, jac_plus->spJ_cx, 1e-3);
+	lasagna_test(funcreturn == _FAILURE_,error_message,
+		     "Failure in sp_ludcmp_cx. Possibly singular matrix!");
+
+	/**printf("Non-zero elements in real LU-decomposition: %d+%d. \nIn complex LU: %d+%d.\n The base matrix is [%d x %d]=%d\n",jac->Numerical->L->Ap[neq],jac->Numerical->U->Ap[neq],jac_plus->Numerical_cx->L->Ap[neq],jac_plus->Numerical_cx->U->Ap[neq],neq,neq,neq*neq);
+	 */
+	jac->new_jacobian = _FALSE_;
+      }
+      else{
+	/* I have a repeated pattern, so I can just refactor:*/
+	sp_refactor(jac->Numerical, jac->spJ);
+	sp_refactor_cx(jac_plus->Numerical_cx, jac_plus->spJ_cx);
+      }
+    }
+    break;
+  
+  case dense: default:
     /* Normal calculation: */
     for(i=1;i<=neq;i++){
       for(j=1;j<=neq;j++){
@@ -867,6 +987,7 @@ int new_linearisation_radau5(struct jacobian *jac,
     funcreturn = ludcmp_cx(jac_plus->LU_cx,neq,jac_plus->luidx,&luparity,jac->LUw);
     lasagna_test(funcreturn == _FAILURE_,error_message,
 	       "Failure in ludcmp. Possibly singular matrix!");
+    break;
   }
   return _SUCCESS_;
 }
