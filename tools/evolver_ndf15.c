@@ -44,9 +44,9 @@
 	to add some new physics without thinking too much about how the code work. So we
 	pay a few more function evaluations, and calculate the full jacobian every time.
 	
-	Then, if jac->use_sparse==_TRUE_, numjac will try to construct a sparse matrix from 
+	Then, if jac->lu_pack = sparse, numjac will try to construct a sparse matrix from 
 	the dense matrix. If there are too many nonzero elements in the dense matrix, numjac
-	will stop constructing the sparse matrix and set jac->use_sparse=_FALSE_. The sparse
+	will stop constructing the sparse matrix and set jac->lu_pack = dense. The sparse
 	matrix is stored in the compressed column format. (See sparse.h).
 	
 	In the sparse case, we also do partial pivoting, but with diagonal preference. The
@@ -334,7 +334,7 @@ for(ii=1;ii<=neq;ii++){
     }
 
     jac.pattern_supplied = _TRUE_;
-    jac.use_sparse = _TRUE_;
+    jac.lu_pack = sparse;
     
     lasagna_call(numjac((*derivs),
 			t,
@@ -448,7 +448,7 @@ for(ii=1;ii<=neq;ii++){
 	  }
 								
 	  /*Solve the linear system A*x=del by using the LU decomposition stored in jac.*/
-	  if (jac.use_sparse){
+	  if (jac.lu_pack==sparse){
 	    sp_lusolve(jac.Numerical, rhs+1, del+1);
 	  }
 	  else{
@@ -1017,7 +1017,7 @@ int adjust_stepsize(double **dif, double abshdivabshlast, int neq,int k){
 int new_linearisation(struct jacobian *jac,double hinvGak,int neq,ErrorMsg error_message){
   double luparity, *Ax;
   int i,j,*Ap,*Ai,funcreturn;
-  if(jac->use_sparse==1){
+  if(jac->lu_pack==sparse){
     Ap = jac->spJ->Ap; Ai = jac->spJ->Ai; Ax = jac->spJ->Ax;
     /* Construct jac->spJ->Ax from jac->xjac, the jacobian:*/
     for(j=0;j<neq;j++){
@@ -1198,7 +1198,7 @@ int numjac(
 
   dFdy = jac->dfdy; /* Assign pointer to dfdy directly for easier notation. */
   fac = jac->jacvec;
-  if (jac->use_sparse){
+  if (jac->lu_pack==sparse){
     Ap = jac->spJ->Ap;
     Ai = jac->spJ->Ai;
   }
@@ -1245,7 +1245,7 @@ int numjac(
 
   /* Sparse calculation?*/
   if ((jac->pattern_supplied==_TRUE_)||
-      ((jac->use_sparse == _TRUE_)&&
+      ((jac->lu_pack==sparse)&&
        (jac->repeated_pattern >= jac->trust_sparse))){
     //printf("Sparse calculation..neq=%d, has grouping=%d\n",neq,jac->has_grouping);
     //printf("jac->pattern_supplied = %d\n",jac->pattern_supplied);
@@ -1302,7 +1302,7 @@ int numjac(
   /*Using the Fdel array, form the jacobian and construct max-value arrays.
     First we do it for the sparse case, then for the normal case:*/
   if ((jac->pattern_supplied==_TRUE_)||
-      ((jac->use_sparse)&&(jac->repeated_pattern >= jac->trust_sparse))){
+      ((jac->lu_pack==sparse)&&(jac->repeated_pattern >= jac->trust_sparse))){
     /* Sparse case:*/
     for(j=0;j<neq;j++){
       /*Loop over columns, and assign corresponding group:*/
@@ -1410,7 +1410,7 @@ int numjac(
 	       use the column computed with this increment.
 	       This depends on wether we are in sparse mode or not: */
 	    if ((jac->pattern_supplied==_TRUE_)||
-		((jac->use_sparse)&&
+		((jac->lu_pack==sparse)&&
 		 (jac->repeated_pattern >= jac->trust_sparse))){
 	      for(i=Ap[j-1];i<Ap[j];i++) 
 		jac->xjac[i]=nj_ws->tmp[Ai[i]];
@@ -1437,13 +1437,13 @@ int numjac(
       }
     }
   }
-  /** If use_sparse is true but I still don't trust the sparsity pattern, 
+  /** If lu_pack = sparse but I still don't trust the sparsity pattern, 
       go through the full calculated jacobi-matrix, deduce the sparsity 
       pattern, compare with the old pattern, and write the new sparse 
       Jacobi matrix. If I do this in a clever way, I only have to walk 
       through the jacobian once, and I don't need any local storage.
   */
-  if ((jac->use_sparse)&&
+  if ((jac->lu_pack==sparse)&&
       (jac->pattern_supplied==_FALSE_)&&
       (jac->repeated_pattern < jac->trust_sparse)){
     nz=0; /*Number of non-zeros */
@@ -1455,7 +1455,7 @@ int numjac(
 	  /* Diagonal or non-zero index found. */
 	  if (nz>=jac->max_nonzero){
 	    /* Too many non-zero points to take advantage of sparsity.*/
-	    jac->use_sparse = 0;
+	    jac->lu_pack = dense;
 	    break;
 	  }
 	  /* Test pattern if it is still unbroken: */
@@ -1500,11 +1500,11 @@ int numjac(
 	}
       }
       /* Break this loop too if I have hit max non-zero points: */
-      if (jac->use_sparse==_FALSE_) break;
+      if (jac->lu_pack==dense) break;
       Ap[j]=nz;
     }
-    printf("nz's = %d / %d, use_sparse = %d\n",nz,jac->max_nonzero,jac->use_sparse);
-    if (jac->use_sparse==_TRUE_){
+    printf("nz's = %d / %d, lu_pack = %d\n",nz,jac->max_nonzero,jac->lu_pack);
+    if (jac->lu_pack==sparse){
       if ((jac->has_pattern==_TRUE_)&&(pattern_broken==_FALSE_)){
 	/*New jacobian fitted into the current sparsity pattern:*/
 	
@@ -1533,10 +1533,10 @@ int initialize_jacobian(struct jacobian *jac, int neq, ErrorMsg error_message){
   int i; 
 
   if (neq>15){
-    jac->use_sparse = 1;
+    jac->lu_pack = sparse;
   }
   else{
-    jac->use_sparse = 0;
+    jac->lu_pack = dense;
   }
   jac->max_nonzero = (int)(max(3*neq,0.20*neq*neq));		 
   jac->cnzmax = 12*jac->max_nonzero/5;
@@ -1572,7 +1572,7 @@ int initialize_jacobian(struct jacobian *jac, int neq, ErrorMsg error_message){
   lasagna_alloc(jac->luidx,sizeof(int)*(neq+1),error_message);
 	
   /*Setup memory for the sparse method, if used: */
-  if (jac->use_sparse){
+  if (jac->lu_pack == sparse){
     jac->sparse_stuff_initialized = 1;
 
     

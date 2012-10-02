@@ -5,6 +5,15 @@
 #define TINY 1e-50
 /**************************************************************/
 
+enum lu_package{
+  dense=0,
+  sparse=1,
+  SuperLU=2,
+  superLU=2, //synonyms to catch typos.
+  Superlu=2,
+  superlu=2
+};
+
 struct jacobian{
   /*Stuff for normal method: */
   double **dfdy;
@@ -13,7 +22,7 @@ struct jacobian{
   double *LUw;
   int *luidx;
   /*Sparse stuff:*/
-  int use_sparse;
+  enum lu_package lu_pack;
   int sparse_stuff_initialized;
   int max_nonzero;     /*Maximal number of non-zero entries to be considered sparse */
   int repeated_pattern;

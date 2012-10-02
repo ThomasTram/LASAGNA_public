@@ -255,7 +255,7 @@ int evolver_radau5(
       jac.spJ->Ai[i] = Ai[i];
     }
     jac.pattern_supplied = _TRUE_;
-    jac.use_sparse = _TRUE_;
+    jac.lu_pack = sparse;
     lasagna_call(numjac((*derivs),
 			t,
 			y0-1,
@@ -350,7 +350,7 @@ int evolver_radau5(
 	    I*(rhs[2*neq+i]-beta*W[neq+i]-alpha*W[2*neq+i]);
 	}
 	//Use backsubstitution to calculate delta W:
-	if (jac.use_sparse){
+	if (jac.lu_pack == sparse){
 	  sp_lusolve(jac.Numerical, rhs, dW);
 	  sp_lusolve_cx(jac_plus.Numerical_cx, rhs_cx, delta_w_cx);
 	}
@@ -452,7 +452,7 @@ int evolver_radau5(
 	}
 	got_ynew = _TRUE_;
 	// Solve for error err:
-	if (jac.use_sparse){
+	if (jac.lu_pack == sparse){
 	  sp_lusolve(jac.Numerical, diff, err);
 	}
 	else{
@@ -479,7 +479,7 @@ int evolver_radau5(
 	    diff[i] += (ftmp[i]-f0[i]);
 	  }
 	  //Solve for err again:
-	  if (jac.use_sparse){
+	  if (jac.lu_pack == sparse){
 	    sp_lusolve(jac.Numerical, diff, err);
 	  }
 	  else{
@@ -715,7 +715,7 @@ int initialize_jacobian_plus(struct jacobian *jac,
 	
   lasagna_alloc(jac_plus->luidx,sizeof(int)*neqp1,error_message);
 
-  if (jac->use_sparse){
+  if (jac->lu_pack == sparse){
     lasagna_call(sp_num_alloc_cx(&jac_plus->Numerical_cx, neq,error_message),
 		 error_message,error_message);
 		
@@ -772,7 +772,7 @@ int new_linearisation_radau5(struct jacobian *jac,
   double luparity, *Ax;
   double complex *Az;
   int i,j,*Ap,*Ai,funcreturn;
-  if(jac->use_sparse==1){
+  if(jac->lu_pack == sparse){
     Ap = jac->spJ->Ap; Ai = jac->spJ->Ai; Ax = jac->spJ->Ax;
     Az = jac_plus->spJ_cx->Ax;
     /* Construct jac->spJ->Ax from jac->xjac, the jacobian:*/
