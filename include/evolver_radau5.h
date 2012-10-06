@@ -4,6 +4,10 @@
 #include "common.h"
 #include "sparse.h"
 #include "evolver_ndf15.h"
+#ifdef _SUPERLU
+/* Define my integer type int_t */
+#include "slu_dcomplex.h"
+#endif
 /**************************************************************/
 
 struct jacobian_plus{
@@ -14,6 +18,16 @@ struct jacobian_plus{
   int sparse_stuff_initialised;
   sp_mat_cx *spJ_cx;
   sp_num_cx *Numerical_cx;
+#ifdef _SUPERLU
+  doublecomplex *Axz;
+  SuperMatrix A;
+  SuperMatrix AC;
+  SuperMatrix L;
+  SuperMatrix U;
+  superlumt_options_t superlumt_options;
+  Gstat_t  Gstat;
+  int SLU_info;
+#endif
 };
 
 
@@ -22,6 +36,19 @@ struct jacobian_plus{
  */
 #ifdef __cplusplus
 extern "C" {
+#endif
+#ifdef _SUPERLU
+extern void zCreate_CompCol_Matrix(SuperMatrix *, 
+				   int, int, int, 
+				   doublecomplex *,
+				   int *, int *, 
+				   Stype_t, Dtype_t, Mtype_t);
+
+extern void zCreate_Dense_Matrix(SuperMatrix *, 
+				 int, int, 
+				 doublecomplex *, 
+				 int,
+				 Stype_t, Dtype_t, Mtype_t);
 #endif
   int initialize_jacobian_plus(struct jacobian *jac, 
 			       struct jacobian_plus *jac_plus, 

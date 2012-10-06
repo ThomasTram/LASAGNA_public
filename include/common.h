@@ -30,6 +30,7 @@ typedef char FileName[_FILENAMESIZE_];
 #define _MAX_IT_ 10000/**< default maximum number of iterations in conditional loops (to avoid infinite loops) */
 #define _TOLVAR_ 100. /**< The minimum allowed variation is the machine precision times this number */
 #define _HUGE_ 1.e99
+#define _CORES_ 4
 
 #define min(a,b) (((a)<(b)) ? (a) : (b) ) /**< the usual "min" function */
 #define max(a,b) (((a)<(b)) ? (b) : (a) ) /**< the usual "max" function */

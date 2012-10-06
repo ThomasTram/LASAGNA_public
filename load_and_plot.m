@@ -7,13 +7,26 @@ close all;
 mbin = 51;
 analytic_static = true;
 Ti_lowtemp = 6;%MeV
-filename = 'output/dump.mat';
+%filename = 'output/dump.mat';
+filename = 'output/ref.mat';
 %filename = 'dump_004_008.mat';
 
 load(filename)
 S = load(filename);
+%Rename variables:
+T = T_vec;
+V0 = V0_vec;
+V1 = V1_vec;
+VL = VL_vec;
+Vx = Vx_vec;
+L = L_vec;
+ui = ui_vec;
+vi = vi_vec;
+xi = xi_vec;
+
+
 %Use T in MeV:
-T = T*1000;
+T = T_vec*1000;
 last_idx = length(T)-sum(T==0);
 
 %Construct linear combinations of (more) physical quantities:

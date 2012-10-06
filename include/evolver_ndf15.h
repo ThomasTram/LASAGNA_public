@@ -3,6 +3,12 @@
 #include "common.h"
 #include "sparse.h"
 #define TINY 1e-50
+#ifdef _SUPERLU
+typedef int int_t; /* default */
+#include "supermatrix.h"
+#include "slu_mt_util.h"
+#define COLAMD_KNOBS 20
+#endif
 /**************************************************************/
 
 enum lu_package{
@@ -42,6 +48,15 @@ struct jacobian{
   sp_num *Numerical; /*Stores the LU decomposition.*/
   int *Cp; /* Stores the column pointers of the spJ+spJ' sparsity pattern. */
   int *Ci; /* Stores the row indices of the  spJ+spJ' sparsity pattern. */
+#ifdef _SUPERLU
+  SuperMatrix A;
+  SuperMatrix AC;
+  SuperMatrix L;
+  SuperMatrix U;
+  superlumt_options_t superlumt_options;
+  Gstat_t  Gstat;
+  int SLU_info;
+#endif
 };
 
 struct numjac_workspace{
@@ -68,6 +83,31 @@ struct numjac_workspace{
  */
 #ifdef __cplusplus
 extern "C" {
+#endif
+#ifdef _SUPERLU
+  extern void dCreate_CompCol_Matrix(SuperMatrix *, 
+				     int, int, int, 
+				     double *,
+				     int *, int *, 
+				     Stype_t, Dtype_t, Mtype_t);
+  
+  extern void dCreate_Dense_Matrix(SuperMatrix *, 
+				   int, int, 
+				   double *, 
+				   int,
+				   Stype_t, Dtype_t, Mtype_t);
+  extern int colamd_recommended(int nnz, int n_row, int n_col) ;
+  extern int colamd(int n_row, int n_col,int Alen, int A [],
+		    int p [], double knobs [COLAMD_KNOBS]) ;
+  extern int     sp_ienv(int);
+  extern void pdgstrf (superlumt_options_t *, SuperMatrix *, int *, 
+		       SuperMatrix *, SuperMatrix *, Gstat_t *, int *);
+  extern void pdgstrf_init (int, fact_t, trans_t, yes_no_t, int, int, 
+			    double, yes_no_t, double,
+			    int *, int *, void *, int, SuperMatrix *,
+			    SuperMatrix *, superlumt_options_t *, Gstat_t *);
+  extern void dgstrs (trans_t, SuperMatrix *, SuperMatrix*, 
+		      int*, int*, SuperMatrix*, Gstat_t *, int *);
 #endif
 
   int initialize_jacobian(struct jacobian *jac, int neq, ErrorMsg error_message);

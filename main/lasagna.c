@@ -36,7 +36,7 @@ int main(int argc, char **argv) {
   for (i=0; i<qke_struct.Ap[qke_struct.neq]; i++) fprintf(jacfile,"%d ",qke_struct.Ai[i]);
   fclose(jacfile);
 
-  return 0;
+  //  return 0;
 
   /** Do stuff */
   y_inout = calloc(qke_struct.neq,sizeof(double));
