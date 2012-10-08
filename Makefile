@@ -14,10 +14,10 @@ vpath %.c source:tools:test:main
 vpath %.o build
 vpath .base build
 
-include ../SuperLU_MT_2.0/make.inc
+#include ../SuperLU_MT_2.0/make.inc
 
-HEADERSLU=../../SuperLU_MT_2.0/SRC
-LIBSLU = ../SuperLU_MT_2.0/lib
+#HEADERSLU=../../SuperLU_MT_2.0/SRC
+#LIBSLU = ../SuperLU_MT_2.0/lib
 
 
 #CC = llvm-gcc
@@ -36,17 +36,26 @@ CC = icc
 #LDFLAG   = -complex-limited-range -g -O3 -B/usr/lib/i386-linux-gnu -I/usr/include/i386-linux-gnu
 #CCFLAG   = -O4 -Wall -g -pg -ggdb --fast-math -D _SUPERLU
 #LDFLAG   = -O4 -Wall -g -pg -ggdb --fast-math -D _SUPERLU
-CCFLAG = $(CFLAGS) $(CDEFS) $(BLASDEF) -D _SUPERLU
-LDFLAG = $(LOADOPTS) -D _SUPERLU
+#CCFLAG = $(CFLAGS) $(CDEFS) $(BLASDEF) -D _SUPERLU
+#LDFLAG = $(LOADOPTS) -D _SUPERLU
 #CCFLAG = $(CFLAGS) $(CDEFS) $(BLASDEF)
 #LDFLAG = $(LOADOPTS)
-INCLUDES = ../include -I$(HEADERSLU)
+CCFLAG   = -O0 -Wall -ggdb -g
+LDFLAG   = -O0 -Wall -ggdb -g
+
+
+#INCLUDES = ../include -I$(HEADERSLU)
+INCLUDES = ../include
 
 %.o:  %.c .base
 	cd $(WRKDIR);$(CC) $(CCFLAG) $(CDEFS) $(BLASDEF) -I$(INCLUDES) -c ../$< -o $*.o
 
-TOOLS = newton.o evolver_ndf15.o sparse.o arrays.o evolver_rk45.o evolver_radau5.o mat_io.o parser.o
+TOOLS = newton.o evolver_ndf15.o sparse.o arrays.o evolver_rk45.o evolver_radau5.o mat_io.o parser.o 
 #TOOLS = newton.o evolver_ndf15_SLU.o sparse.o arrays.o evolver_rk45.o evolver_radau5.o mat_io.o parser.o
+
+WRAPPER_DNR = linalg_wrapper_dense_NR.o
+
+TEST_WRAPPERS = test_wrappers.o
 
 LASAGNA = lasagna.o
 
@@ -99,6 +108,9 @@ test_vdp: $(TOOLS) $(TEST_VDP)
 	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
 
 test_matio: $(TOOLS) $(TEST_MATIO)
+	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
+
+test_wrappers: multimatrix.o $(WRAPPER_DNR) $(TEST_WRAPPERS) 
 	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
 
 test_partial: $(TOOLS) $(QKE_EQUATIONS) $(BACKGROUND) $(TEST_PARTIAL)

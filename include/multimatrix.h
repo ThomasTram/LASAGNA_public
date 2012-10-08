@@ -1,5 +1,6 @@
 #ifndef __MULTIMATRIX /* allow multiple inclusions */
 #define __MULTIMATRIX
+
 #include "common.h"
 /********************************************
  * The matrix types are defined as follows. *
@@ -18,8 +19,8 @@ typedef struct {
   StoreType Stype; /* Storage type: interprets the storage structure 
 		      pointed to by *Store. */
   DataType Dtype; /* Data type. */
-  int_t  nrow;   /* number of rows */
-  int_t  ncol;   /* number of columns */
+  int    nrow;   /* number of rows */
+  int    ncol;   /* number of columns */
   void *Store;   /* pointer to the actual storage of the matrix */
 } MultiMatrix;
 
@@ -52,3 +53,39 @@ typedef struct {
 		      row-major order starting from 
 		      pointer_to_data + 1. */
 } DNRformat;
+
+/**
+ * Boilerplate for C++
+ */
+#ifdef __cplusplus
+extern "C" {
+#endif
+  int CreateMatrix_SCC(MultiMatrix *A,
+		       DataType Dtype, 
+		       int nrow,
+		       int ncol,
+		       int nnz,
+		       int *Ai,
+		       int *Ap,
+		       void *Ax,
+		       ErrorMsg error_message);
+  int CreateMatrix_DNR(MultiMatrix *A,
+		       DataType Dtype, 
+		       int nrow,
+		       int ncol,
+		       void *data,
+		       ErrorMsg error_message);
+  int DestroyMultiMatrix(MultiMatrix *A);
+  size_t GetByteSize(DataType Dtype);
+
+#ifdef __cplusplus
+}
+#endif
+
+
+
+
+
+
+
+#endif
