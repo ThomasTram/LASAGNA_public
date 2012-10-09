@@ -24,6 +24,7 @@
     -- This is called once, in the end of the computation.
 
     int linalg_factorise(MultiMatrix *A, 
+                         EvolverOptions *options,
                          void *linalg_workspace,
                          ErrorMsg error_message)
     -- Factorise A and store the factors in linalg_workspace. If
@@ -42,6 +43,7 @@
     I suggest to use the names above and append _"NAME_OF_WRAPPER".
 */
 int linalg_initialise_dense_NR(MultiMatrix *A, 
+			       EvolverOptions *options,
 			       void **linalg_workspace,
 			       ErrorMsg error_message){
   DNR_structure *workspace;
@@ -50,7 +52,7 @@ int linalg_initialise_dense_NR(MultiMatrix *A,
   int ncol, nrow;
   ncol = A->ncol; nrow = A->nrow; Dtype = A->Dtype;
   //Test input:
-  lasagna_test(A->ncol == A->nrow, 
+  lasagna_test(A->ncol != A->nrow, 
 	       error_message, 
 	       "Matrix not square!");
   lasagna_test((A->Dtype!=L_DBL)&&(A->Dtype!=L_DBL_CX), 
@@ -65,7 +67,8 @@ int linalg_initialise_dense_NR(MultiMatrix *A,
   lasagna_alloc(workspace->luidx,sizeof(int)*(nrow+1),error_message);
   lasagna_alloc(data,GetByteSize(Dtype)*(ncol*nrow+1),error_message);
   lasagna_alloc(workspace->LUw,sizeof(double)*(nrow+1),error_message);
-  
+  lasagna_alloc(workspace->LU,sizeof(MultiMatrix),error_message);
+
   lasagna_call(CreateMatrix_DNR(workspace->LU,
 				Dtype, 
 				nrow,
@@ -73,6 +76,7 @@ int linalg_initialise_dense_NR(MultiMatrix *A,
 				data,
 				error_message),
 	       error_message,error_message);
+
   workspace->neq = nrow;
   *linalg_workspace = (void *) workspace;
 
@@ -88,6 +92,7 @@ int linalg_finalise_dense_NR(void *linalg_workspace,
   free(Store->Data);
   //Data freed, now destroy multimatrix LU:
   DestroyMultiMatrix(ws->LU);
+  free(ws->LU);
   free(ws->LUw);
   free(ws->luidx);
   free(ws);
@@ -102,8 +107,11 @@ int linalg_factorise_dense_NR(MultiMatrix *A,
   DNRformat *StoreA=A->Store;
   DNRformat *StoreLU=ws->LU->Store;
   double luparity;
+  int neq=ws->neq;
   //Copy data from A into ws->LU. This can be done by memcpy.
-  memcpy(StoreLU->Data, StoreA->Data, GetByteSize(ws->LU->Dtype)*(ws->neq+1));
+  memcpy(StoreLU->Data, 
+	 StoreA->Data, 
+	 GetByteSize(ws->LU->Dtype)*(neq*neq+1));
 
   switch(A->Dtype){
   case (L_DBL):
@@ -164,21 +172,7 @@ int linalg_solve_dense_NR(MultiMatrix *B,
   return _SUCCESS_;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+//Local functions:
 
 
 int ludcmp(double **a, int n, int *indx, double *d, double *vv){

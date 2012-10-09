@@ -24,6 +24,11 @@ typedef struct {
   void *Store;   /* pointer to the actual storage of the matrix */
 } MultiMatrix;
 
+typedef struct {
+  int flag;
+  int Cores;
+} EvolverOptions;
+
 /***********************************************
  * The storage schemes are defined as follows. *
  ***********************************************/
@@ -77,7 +82,7 @@ extern "C" {
 		       ErrorMsg error_message);
   int DestroyMultiMatrix(MultiMatrix *A);
   size_t GetByteSize(DataType Dtype);
-
+  int PrintMultiMatrix(MultiMatrix *A, char* name);
 #ifdef __cplusplus
 }
 #endif

@@ -18,6 +18,7 @@ extern "C" {
 #endif
 
   int linalg_initialise_dense_NR(MultiMatrix *A, 
+				 EvolverOptions *options,
 				 void **linalg_workspace,
 				 ErrorMsg error_message);
   int linalg_finalise_dense_NR(void *linalg_workspace,

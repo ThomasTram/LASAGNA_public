@@ -64,7 +64,6 @@ int CreateMatrix_DNR(MultiMatrix *A,
   A->ncol = ncol;
   
   //Allocate storage structure:
-  printf("Allocating storage structure of size %d\n",(int) sizeof(DNRformat));
   lasagna_alloc(A->Store,sizeof(DNRformat),error_message);
   Store = (DNRformat *) A->Store;
   Store->Data = data;
@@ -120,3 +119,39 @@ size_t GetByteSize(DataType Dtype){
   }
   return -1;
 }
+
+int PrintMultiMatrix(MultiMatrix *A, char* name){
+  int i,j;
+  DNRformat *StoreDNR;
+  SCCformat *StoreSCC;
+  double **Mat_dbl;
+  double complex **Mat_dbl_cx;
+  
+  printf("Printing... %s\n",name);
+  
+  switch(A->Stype){
+  case (L_DNR):
+    printf("StoreType: L_DNR.\n");
+    StoreDNR = A->Store;
+    for (j=1; j<=A->nrow; j++){
+      for(i=1; i<=A->ncol; i++){
+	switch (A->Dtype){
+	case (L_DBL):
+	  Mat_dbl = StoreDNR->Matrix;
+	  printf("%.5f ",Mat_dbl[j][i]);
+	  break;
+	case (L_DBL_CX):
+	  Mat_dbl_cx = StoreDNR->Matrix;
+	  printf("%.5f+i%.5f ",creal(Mat_dbl_cx[j][i]),cimag(Mat_dbl_cx[j][i]));
+	  break;
+	}
+      }
+      printf("\n");
+    }
+    printf("\n");
+    break;
+  }
+  return _SUCCESS_;
+}
+
+  
