@@ -3,6 +3,7 @@
 #include "multimatrix.h"
 
 typedef struct {
+  MultiMatrix *A;  //Pointer to MultiMatrix A
   MultiMatrix *LU; //The LU decomposition.
   double *LUw;     //Workspace for LU
   int *luidx;      //Permutation vector for LU.
@@ -23,8 +24,7 @@ extern "C" {
 				 ErrorMsg error_message);
   int linalg_finalise_dense_NR(void *linalg_workspace,
 			       ErrorMsg error_message);
-  int linalg_factorise_dense_NR(MultiMatrix *A, 
-				void *linalg_workspace,
+  int linalg_factorise_dense_NR(void *linalg_workspace,
 				ErrorMsg error_message);
   int linalg_solve_dense_NR(MultiMatrix *B, 
 			    MultiMatrix *X,

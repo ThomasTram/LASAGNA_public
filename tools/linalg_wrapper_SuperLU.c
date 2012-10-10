@@ -25,8 +25,7 @@
     int linalg_finalise(void *linalg_workspace, ErrorMsg error_message)
     -- This is called once, in the end of the computation.
 
-    int linalg_factorise(MultiMatrix *A, 
-                         void *linalg_workspace,
+    int linalg_factorise(void *linalg_workspace,
                          ErrorMsg error_message)
     -- Factorise A and store the factors in linalg_workspace. If
        the method can take advantage of subsequent factorisations,
@@ -181,8 +180,7 @@ int linalg_finalise_SuperLU(void *linalg_workspace,
 }
 
 
-int linalg_factorise_SuperLU(MultiMatrix *A, 
-			     void *linalg_workspace,
+int linalg_factorise_SuperLU(void *linalg_workspace,
 			     ErrorMsg error_message){
   SLU_structure *ws= linalg_workspace;
   /** The actual data in ws->A is the same as in the MultiMatrix

@@ -926,3 +926,86 @@ int sp_refactor_cx(sp_num_cx *N,
   for(p=0; p<lnz; p++) Li[p] = pinv[Li[p]];
   return _SUCCESS_;
 }
+
+int get_pattern_A_plus_AT(int *Ap, 
+			  int *Ai, 
+			  int n, 
+			  int **Cp, 
+			  int **Ci, 
+			  ErrorMsg error_message){
+  int *w_and_Cp, *Tp, *Ti, *Ci_loc;
+  int nz, q;
+  int j,i;
+  int colAptr, colTptr, colAend, colTend;
+
+  lasagna_calloc(w_and_Cp,(n+1),sizeof(int),error_message);
+  lasagna_alloc(Tp,sizeof(int)*(n+1),error_message);
+  lasagna_alloc(Ti,sizeof(int)*Ap[n],error_message);
+
+  /** Calculate transposition of A and store in T.
+      First calculate number of entries in each column of T:
+  */
+  for (i=0; i<Ap[n]; i++)
+    w_and_Cp[Ai[i]]++;
+  /** Set column pointer as cumulative sum: */
+  for (Tp[0]=0, j=0; j<n; j++)
+    Tp[j+1] = Tp[j]+w[j];
+  /** Use w_and_Cp as an array of column pointers to Ti. If we write
+      an entry in column k, we increase the k'th entry in w_and_Cp by 1. 
+  */
+  for (j=0; j<n; j++){
+    for (i=Ap[j]; i<Ap[j+1]; i++){
+      q = w_and_Cp[Ai[i]];
+      Ci[q] = j;
+      w_and_Cp[Ai[i]]++;
+    }
+  }
+
+  /** Now add the two sparse patterns.*/
+  lasagna_alloc(Ci_loc,sizeof(int)*2*Ap[n],error_message);
+  nz = 0;
+  w_and_Cp[0] = 0;
+  for (j=0; j<n; j++){
+    colAptr = Ap[j];
+    colAend = Ap[j+1];
+    colTptr = Tp[j];
+    colTend = Tp[j+1];
+    /** While both columns are non-empty, we must compare indices
+	and write the smallest of the two. (Both Ai and Ti is sorted.)
+    */
+    while ((colAptr<colAend)&&(colTptr<colTend)){
+      if (Ai[colAptr]<Ti[colTptr]){
+	Ci_loc[nz] = Ai[colAptr];
+	colAptr++;
+      }
+      else if(Ti[colTptr]<Ai[colAptr]){
+	Ci_loc[nz] = Ti[colTptr];
+	colTptr++;
+      }
+      else{
+	//They must be identical.
+	Ci_loc[nz] = Ai[colAptr];
+	colAptr++;
+	colTptr++;
+      }
+      nz++;
+    }
+    //Write rest of entries:
+    for( ; colAptr<colAend; colAptr++){
+      Ci_loc[nz] = Ai[colAptr];
+      nz++;
+    }
+    for( ; colTptr<colTend; colTptr++){
+      Ci_loc[nz] = Ai[colAptr];
+      nz++;
+    }
+    w_and_Cp[j+1] = nz;
+  }
+  //Reallocate Ci to the minimum size required by AMD, t = cnz+cnz/5+2n:
+  *Ci = realloc(Ci_loc,sizeof(int)* (nz+nz/5+2*n));
+  lasagna_test(*Ci==NULL,error_message,"Reallocate failed.");
+  *Cp = w_and_Cp;
+  free(Tp);
+  free(Ti);
+  return _SUCCESS_;
+}

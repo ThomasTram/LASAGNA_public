@@ -77,6 +77,8 @@ int linalg_initialise_dense_NR(MultiMatrix *A,
 				error_message),
 	       error_message,error_message);
 
+  //Store pointer to A in structure as well:
+  workspace->A = A;
   workspace->neq = nrow;
   *linalg_workspace = (void *) workspace;
 
@@ -100,11 +102,10 @@ int linalg_finalise_dense_NR(void *linalg_workspace,
 }
 
 
-int linalg_factorise_dense_NR(MultiMatrix *A, 
-			      void *linalg_workspace,
+int linalg_factorise_dense_NR(void *linalg_workspace,
 			      ErrorMsg error_message){
   DNR_structure *ws= linalg_workspace;
-  DNRformat *StoreA=A->Store;
+  DNRformat *StoreA=ws->A->Store;
   DNRformat *StoreLU=ws->LU->Store;
   double luparity;
   int neq=ws->neq;
