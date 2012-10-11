@@ -114,7 +114,7 @@ int linalg_factorise_dense_NR(void *linalg_workspace,
 	 StoreA->Data, 
 	 GetByteSize(ws->LU->Dtype)*(neq*neq+1));
 
-  switch(A->Dtype){
+  switch(ws->A->Dtype){
   case (L_DBL):
     ludcmp((double **) StoreLU->Matrix, 
 	   ws->neq, 
