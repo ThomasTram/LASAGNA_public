@@ -94,11 +94,11 @@ extern "C" {
   int sp_lusolve_cx(sp_num_cx *N, double complex *b, double complex *x);
   int sp_refactor_cx(sp_num_cx *N, sp_mat_cx *A);
   int get_pattern_A_plus_AT(int *Ap, 
-			  int *Ai, 
-			  int n, 
-			  int **Cp, 
-			  int **Ci, 
-			  ErrorMsg error_message)
+			    int *Ai, 
+			    int n, 
+			    int **Cp, 
+			    int **Ci, 
+			    ErrorMsg error_message);
   
 #define SPFLIP(i) (-(i)-2)
 #define SPUNFLIP(i) (((i)<0) ? SPFLIP(i) : (i))

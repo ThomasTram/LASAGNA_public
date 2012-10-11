@@ -54,8 +54,8 @@ int linalg_initialise_sparse(MultiMatrix *A,
   int nnz;
   int *Cp, *Ci;
   int *perm_c, *wamd;
-
-  ncol = A->ncol; nrow = A->nrow; Dtype = A->Dtype;
+  int ncol, nrow;
+  ncol = A->ncol; nrow = A->nrow;
   //Test input:
   lasagna_test(A->ncol != A->nrow, 
 	       error_message, 
@@ -71,36 +71,36 @@ int linalg_initialise_sparse(MultiMatrix *A,
   lasagna_alloc(ws,sizeof(SP_structure),error_message);
   switch (A->Dtype){
   case (L_DBL):
-    lasagna_call(sp_num_alloc(&(ws->SparseNumerical), 
+    lasagna_call(sp_num_alloc(&( (sp_num *) ws->SparseNumerical), 
 			      ncol, 
 			      error_message),
 		 error_message,error_message);
     perm_c = ((sp_num *) ws->SparseNumerical)->q;
     wamd = ((sp_num *) ws->SparseNumerical)->wamd;
-    lasagna_alloc(ws->A,sizeof(sp_mat *),error_message);
-    sp_mat = (sp_mat *) ws->A;
-    sp_mat->ncols = ncol;
-    sp_mat->nrows = nrow;
-    sp_mat->maxnz = nnz;
-    sp_mat->Ai = Store->Ai;
-    sp_mat->Ap = Store->Ap;
-    sp_mat->Ax = (double *) Store->Ax;
+    lasagna_alloc(ws->A,sizeof(sp_mat),error_message);
+    spmat_dbl = (sp_mat *) ws->A;
+    spmat_dbl->ncols = ncol;
+    spmat_dbl->nrows = nrow;
+    spmat_dbl->maxnz = nnz;
+    spmat_dbl->Ai = Store->Ai;
+    spmat_dbl->Ap = Store->Ap;
+    spmat_dbl->Ax = (double *) Store->Ax;
     break;
   case (L_DBL_CX):
-    lasagna_call(sp_num_alloc_cx(&(ws->SparseNumerical), 
+    lasagna_call(sp_num_alloc_cx(&( (sp_num_cx *) ws->SparseNumerical), 
 				 ncol, 
 				 error_message),
 		 error_message,error_message);
     perm_c = ((sp_num_cx *) ws->SparseNumerical)->q;
     wamd = ((sp_num_cx *) ws->SparseNumerical)->wamd;
-    lasagna_alloc(ws->A,sizeof(sp_mat_cx *),error_message);
-    sp_mat = (sp_mat_cx *) ws->A;
-    sp_mat->ncols = ncol;
-    sp_mat->nrows = nrow;
-    sp_mat->maxnz = nnz;
-    sp_mat->Ai = Store->Ai;
-    sp_mat->Ap = Store->Ap;
-    sp_mat->Ax = (double complex*) Store->Ax;
+    lasagna_alloc(ws->A,sizeof(sp_mat_cx),error_message);
+    spmat_dbl_cx = (sp_mat_cx *) ws->A;
+    spmat_dbl_cx->ncols = ncol;
+    spmat_dbl_cx->nrows = nrow;
+    spmat_dbl_cx->maxnz = nnz;
+    spmat_dbl_cx->Ai = Store->Ai;
+    spmat_dbl_cx->Ap = Store->Ap;
+    spmat_dbl_cx->Ax = (double complex*) Store->Ax;
     break;
   }
   //Calculate sparsity pattern of C = A + A^T for use with AMD:
@@ -117,6 +117,7 @@ int linalg_initialise_sparse(MultiMatrix *A,
   free(Cp);
   free(Ci);
   /** Set options for solver: */
+  ws->Dtype = A->Dtype;
   ws->PivotTolerance = 0.1;
   ws->RefactorCount = 0;
   ws->RefactorMax = 10;
@@ -130,7 +131,7 @@ int linalg_finalise_sparse(void *linalg_workspace,
 			   ErrorMsg error_message){
   
   SP_structure *ws=linalg_workspace;  
-  switch (A->Dtype){
+  switch (ws->Dtype){
   case (L_DBL):
     sp_num_free((sp_num *) ws->SparseNumerical);
     break;
@@ -140,6 +141,7 @@ int linalg_finalise_sparse(void *linalg_workspace,
   }
   free(ws->A);
   free(ws);
+  return _SUCCESS_;
 }
 
 int linalg_factorise_sparse(void *linalg_workspace,
@@ -150,7 +152,7 @@ int linalg_factorise_sparse(void *linalg_workspace,
       A which was passed to linalg_initialise_sparse.
   */
 
-  switch(A->Dtype){
+  switch(ws->Dtype){
   case (L_DBL):
     if ((ws->Factorised==_TRUE_)&&(ws->RefactorCount < ws->RefactorMax)){
       fr = sp_refactor((sp_num *) ws->SparseNumerical, 

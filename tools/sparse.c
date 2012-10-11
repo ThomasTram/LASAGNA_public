@@ -948,15 +948,19 @@ int get_pattern_A_plus_AT(int *Ap,
   for (i=0; i<Ap[n]; i++)
     w_and_Cp[Ai[i]]++;
   /** Set column pointer as cumulative sum: */
-  for (Tp[0]=0, j=0; j<n; j++)
-    Tp[j+1] = Tp[j]+w[j];
+  for (j=0, nz=0; j<n; j++){
+    Tp[j] = nz;
+    nz += w_and_Cp[j];
+    w_and_Cp[j] = Tp[j];
+  }
+  Tp[n] = nz;
   /** Use w_and_Cp as an array of column pointers to Ti. If we write
       an entry in column k, we increase the k'th entry in w_and_Cp by 1. 
   */
   for (j=0; j<n; j++){
     for (i=Ap[j]; i<Ap[j+1]; i++){
       q = w_and_Cp[Ai[i]];
-      Ci[q] = j;
+      Ti[q] = j;
       w_and_Cp[Ai[i]]++;
     }
   }
@@ -989,15 +993,18 @@ int get_pattern_A_plus_AT(int *Ap,
 	colTptr++;
       }
       nz++;
+      //      printf("%d ",nz);
     }
     //Write rest of entries:
     for( ; colAptr<colAend; colAptr++){
       Ci_loc[nz] = Ai[colAptr];
       nz++;
+      //printf(")%d ",nz);
     }
     for( ; colTptr<colTend; colTptr++){
-      Ci_loc[nz] = Ai[colAptr];
+      Ci_loc[nz] = Ti[colTptr];
       nz++;
+      //printf("(%d ",nz);
     }
     w_and_Cp[j+1] = nz;
   }

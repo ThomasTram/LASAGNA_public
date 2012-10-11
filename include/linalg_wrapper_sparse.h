@@ -6,6 +6,7 @@
 typedef struct {
   void *SparseNumerical;
   void *A;
+  DataType Dtype;
   double PivotTolerance;
   int Factorised;
   int RefactorCount;

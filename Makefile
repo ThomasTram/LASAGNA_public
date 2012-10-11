@@ -56,6 +56,8 @@ TOOLS = newton.o evolver_ndf15.o sparse.o arrays.o evolver_rk45.o evolver_radau5
 
 LINALG_WRAPPER_DENSE = linalg_wrapper_dense_NR.o
 
+LINALG_WRAPPER_SPARSE = linalg_wrapper_sparse.o
+
 LINALG_WRAPPER_SUPERLU = linalg_wrapper_SuperLU.o
 
 TEST_WRAPPERS = test_wrappers.o
@@ -118,7 +120,7 @@ test_matio: $(TOOLS) $(TEST_MATIO)
 test_wrappers: multimatrix.o $(LINALG_WRAPPER_DENSE_NR) $(TEST_WRAPPERS) 
 	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
 
-test_wrapper_sparse: multimatrix.o $(LINALG_WRAPPER_SUPERLU) $(TEST_WRAPPER_SPARSE)
+test_wrapper_sparse: multimatrix.o sparse.o $(LINALG_WRAPPER_SPARSE) $(LINALG_WRAPPER_SUPERLU) $(TEST_WRAPPER_SPARSE)
 	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) $(LIBSLU)/$(SUPERLULIB) $(BLASLIB) $(MPLIB) -lm
 
 test_partial: $(TOOLS) $(QKE_EQUATIONS) $(BACKGROUND) $(TEST_PARTIAL)

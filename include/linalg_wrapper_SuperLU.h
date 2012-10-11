@@ -33,8 +33,7 @@ extern "C" {
 				ErrorMsg error_message);
   int linalg_finalise_SuperLU(void *linalg_workspace,
 			      ErrorMsg error_message);
-  int linalg_factorise_SuperLU(MultiMatrix *A, 
-			       void *linalg_workspace,
+  int linalg_factorise_SuperLU(void *linalg_workspace,
 			       ErrorMsg error_message);
   int linalg_solve_SuperLU(MultiMatrix *B, 
 			   MultiMatrix *X,

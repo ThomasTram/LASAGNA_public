@@ -24,9 +24,32 @@ typedef struct {
   void *Store;   /* pointer to the actual storage of the matrix */
 } MultiMatrix;
 
-typedef struct {
-  int flag;
-  int Cores;
+typedef struct _EvolverOptions{
+  double AbsTol;
+  double RelTol;
+  int * used_in_output; /**Which indices are required in output? */
+  double * t_vec;       /**Output at specified points */
+  int tres;             /**If t_vec!=NULL, length of t_vec.
+			   If t_vec==NULL, refinement factor.*/
+  int Stats[10]; /** Evolver statistics */
+  int Flags[10]; /** Can for instance be used for communication between evolver
+		     and linalg wrapper, or different instances of the wrapper. */
+  int Cores;     /** Number of cores available for linalg_wrapper */
+  int EvolverVerbose;  /** Level of output from evolver. */
+  int LinAlgVerbose;   /** Level of output from linalg wrapper. */
+  /** Pointers to the 4 linear algebra wrapper functions: */
+  int (*linalg_initialise)(MultiMatrix *, struct _EvolverOptions *, void **, ErrorMsg);
+  int (*linalg_finalise)(void *, ErrorMsg);
+  int (*linalg_factorise)(void *, ErrorMsg);
+  int (*linalg_solve)(MultiMatrix *, MultiMatrix *, void *, ErrorMsg);
+  /** Pointers to the evolver utility functions:*/
+  int (*output)(double t, double *y, double *dy, int i, void *p, ErrorMsg err);
+  int (*print_variables)(double t, double *y, double *dy, void *p, ErrorMsg err);
+  int (*stop_function)(double t, double *y, double *dy, void *p, ErrorMsg err);
+  /** Jacobian specific stuff:*/
+  int use_sparse;
+  int *Ai;
+  int *Ap;
 } EvolverOptions;
 
 /***********************************************

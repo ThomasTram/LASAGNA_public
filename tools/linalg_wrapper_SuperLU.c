@@ -189,8 +189,8 @@ int linalg_factorise_SuperLU(void *linalg_workspace,
       routine now, given that A has been modified accordingly outside.
   */
 
-  switch(A->Dtype){
-  case (L_DBL):
+  switch(ws->A.Dtype){
+  case (SLU_D):
     pdgstrf(&(ws->superlumt_options), 
 	    &(ws->AC), 
 	    ws->perm_r, 
@@ -199,7 +199,7 @@ int linalg_factorise_SuperLU(void *linalg_workspace,
 	    &(ws->Gstat), 
 	    &(ws->SLU_info));
     break;
-  case (L_DBL_CX):
+  case (SLU_Z):
     pzgstrf(&(ws->superlumt_options), 
 	    &(ws->AC), 
 	    ws->perm_r, 
