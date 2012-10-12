@@ -34,6 +34,7 @@ extern "C" {
   int linalg_finalise_SuperLU(void *linalg_workspace,
 			      ErrorMsg error_message);
   int linalg_factorise_SuperLU(void *linalg_workspace,
+			       int has_changed_significantly,
 			       ErrorMsg error_message);
   int linalg_solve_SuperLU(MultiMatrix *B, 
 			   MultiMatrix *X,

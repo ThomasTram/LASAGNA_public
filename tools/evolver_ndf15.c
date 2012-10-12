@@ -44,9 +44,9 @@
 	to add some new physics without thinking too much about how the code work. So we
 	pay a few more function evaluations, and calculate the full jacobian every time.
 	
-	Then, if jac->lu_pack = sparse, numjac will try to construct a sparse matrix from 
+	Then, if jac->use_sparse==_TRUE_, numjac will try to construct a sparse matrix from 
 	the dense matrix. If there are too many nonzero elements in the dense matrix, numjac
-	will stop constructing the sparse matrix and set jac->lu_pack = dense. The sparse
+	will stop constructing the sparse matrix and set jac->use_sparse=_FALSE_. The sparse
 	matrix is stored in the compressed column format. (See sparse.h).
 	
 	In the sparse case, we also do partial pivoting, but with diagonal preference. The
@@ -58,69 +58,68 @@
 #include "evolver_ndf15.h"
 #include "sparse.h"
 
-int evolver_ndf15(
-		  int (*derivs)(double x,double * y,double * dy,
+int evolver_ndf15(int (*derivs)(double x,double * y,double * dy,
 				void * parameters_and_workspace, ErrorMsg error_message),
-		  double x_ini,
-		  double x_final,
-		  double * y_inout, 
-		  int * used_in_output,
-		  int neq, 
 		  void * parameters_and_workspace_for_derivs,
-		  double rtol, 
-		  double abstol, 
-		  double * t_vec, 
-		  int tres,
-		  int *Ap,
-		  int *Ai,
-		  int (*output)(double x,
-				double y[],
-				double dy[],
-				int index_x,
-				void * parameters_and_workspace,
-				ErrorMsg error_message),
-		  int (*print_variables)(double x, 
-					 double y[], 
-					 double dy[], 
-					 void *parameters_and_workspace,
-					 ErrorMsg error_message),
-		  int (*stop_function)(double x, 
-				       double y[], 
-				       double dy[], 
-				       void *parameters_and_workspace,
-				       ErrorMsg error_message),
+		  double t0,
+		  double tfinal,
+		  double * y_inout, 
+		  int neq, 
+		  EvolverOptions *options,
 		  ErrorMsg error_message){
 	
+  /** Handle options: */
+  int *interpidx, *used_in_output, *stepstat, verbose, tres; 
+  double abstol, rtol, *t_vec;
+  int (*linalg_initialise)(MultiMatrix *, EvolverOptions *, void **, ErrorMsg);
+  int (*linalg_finalise)(void *, ErrorMsg);
+  int (*linalg_factorise)(void *, int, ErrorMsg);
+  int (*linalg_solve)(MultiMatrix *, MultiMatrix *, void *, ErrorMsg);
+  int (*output)(double t, double *y, double *dy, int i, void *p, ErrorMsg err);
+  int (*print_variables)(double t, double *y, double *dy, void *p, ErrorMsg err);
+  int (*stop_function)(double t, double *y, double *dy, void *p, ErrorMsg err);
+  used_in_output = options->used_in_output; stepstat = &(options->Stats[0]);
+  verbose = options->EvolverVerbose; tres = options->tres; abstol = options->AbsTol; 
+  rtol = options->RelTol; t_vec = options->t_vec; 
+  linalg_initialise = options->linalg_initialise; linalg_finalise = options->linalg_finalise;
+  linalg_factorise = options->linalg_factorise; linalg_solve = options->linalg_solve;
+  output = options->output; print_variables=options->print_variables; 
+  stop_function = options->stop_function;
+  int *Ai, *Ap, nnz;
+
   /* Constants: */
   double G[5]={1.0,3.0/2.0,11.0/6.0,25.0/12.0,137.0/60.0};
   double alpha[5]={-37.0/200,-1.0/9.0,-8.23e-2,-4.15e-2, 0};
   double invGa[5],erconst[5];
-  double threshold=abstol/rtol;
   int maxit=4, maxk=2;
+  double threshold = abstol/rtol;
 	
   /* Logicals: */
-  int Jcurrent,havrate,done,at_hmin,nofailed,gotynew,tooslow,*interpidx;
+  int Jcurrent,new_jacobian, havrate,done,at_hmin,nofailed,gotynew,tooslow;
 	
   /* Storage: */
   double *f0,*y,*wt,*ddfddt,*pred,*ynew,*invwt,*rhs,*psi,*difkp1,*del,*yinterp;
   double *tempvec1,*tempvec2,*ypinterp,*yppinterp;
   double **dif;
-  struct jacobian jac;
-  struct numjac_workspace nj_ws;
 	
   /* Method variables: */
-  double t,t0,ti,tfinal,tnew=0;
+  double t,ti,tnew=0;
   double rh,htspan,absh,hmin,hmax,h,tdel;
   double abshlast,hinvGak,minnrm,oldnrm=0.,newnrm;
   double err,hopt,errkm1,hkm1,errit,rate=0.,temp,errkp1,hkp1,maxtmp;
   int k,klast,nconhk,iter,next=0,kopt,tdir;
 	
   /* Misc: */
-  int stepstat[6],nfenj,j,ii,jj, numidx, neqp=neq+1;
-  int verbose=5;
+  int nfenj,j,ii,jj, numidx, neqp=neq+1;
+
+  /* Matrices for jacobian and linearisation: */
+  MultiMatrix J, A, RHS, DEL;
+  double *Jval, *Aval;
+  void *linalg_workspace_A, *nj_ws;
+  double **Matrix;
+  DNRformat *StoreDNR;
 
   /** Allocate memory . */
-
   void * buffer;
   int buffer_size;
 
@@ -190,11 +189,38 @@ int evolver_ndf15(
   /*Set pointers:*/
   ynew = y_inout-1; /* This way y_inout is always up to date. */
 
-  /*Initialize the jacobian:*/
-  lasagna_call(initialize_jacobian(&jac,neq,error_message),error_message,error_message);
-	
+  /** Initialise MultiMatrix J, A and the linear method: */
+  if (options->use_sparse == _TRUE_){
+    printf("Use Sparse\n");
+    Ai=options->Ai; Ap=options->Ap;
+    nnz = Ap[neq];
+
+    lasagna_alloc(Jval, sizeof(double)*nnz, error_message);
+    lasagna_alloc(Aval, sizeof(double)*nnz, error_message);
+    lasagna_call(CreateMatrix_SCC(&(J),L_DBL,neq, neq, nnz, Ai, Ap, Jval, error_message),
+		 error_message, error_message);
+    lasagna_call(CreateMatrix_SCC(&(A),L_DBL,neq, neq, nnz, Ai, Ap, Aval, error_message),
+		 error_message, error_message);
+  }
+  else{
+    printf("Use dense\n");
+    lasagna_alloc(Jval, sizeof(double)*(neq*neq+1), error_message);
+    lasagna_alloc(Aval, sizeof(double)*(neq*neq+1), error_message);
+    lasagna_call(CreateMatrix_DNR(&(J),L_DBL,neq, neq, Jval, error_message),
+		 error_message, error_message);
+    lasagna_call(CreateMatrix_DNR(&(A),L_DBL,neq, neq, Aval, error_message),
+		 error_message, error_message);
+  }
+  lasagna_call(linalg_initialise(&A, options, &linalg_workspace_A,error_message),
+	       error_message, error_message);
+  lasagna_call(CreateMatrix_DNR(&(RHS), L_DBL, 1, neq, rhs, error_message),
+	       error_message, error_message);
+  lasagna_call(CreateMatrix_DNR(&(DEL), L_DBL, 1, neq, del, error_message),
+	       error_message, error_message);
+
   /* Initialize workspace for numjac: */
-  lasagna_call(initialize_numjac_workspace(&nj_ws,neq,error_message),error_message,error_message);
+  lasagna_call(initialize_numjac_workspace(&J, &nj_ws,error_message),
+	       error_message,error_message);
 	
   /* Initialize some method parameters:*/
   for(ii=0;ii<5;ii++){
@@ -206,16 +232,13 @@ int evolver_ndf15(
   /* But if we want to print variables for testing purposes, just interpolate everything.. */
   for(ii=1;ii<=neq;ii++){
     y[ii] = y_inout[ii-1];
-    if (print_variables==NULL){
+    if ((used_in_output != NULL)&&(print_variables==NULL)){
       interpidx[ii]=used_in_output[ii-1];
     }
     else{
       interpidx[ii]=1;
     }
   }
-
-  t0 = x_ini;
-  tfinal = x_final;
 
   /* Some lasagna-specific stuff:*/
   if ((tfinal-t0)<0.0){
@@ -237,7 +260,7 @@ int evolver_ndf15(
     }
     printf("%d/%d\n",numidx,neq);
   }
-
+  
   htspan = fabs(tfinal-t0);
   hmax = htspan/10.0;
 
@@ -257,8 +280,8 @@ int evolver_ndf15(
 		      t,
 		      y,
 		      f0,
-		      &jac,
-		      &nj_ws,
+		      &J,
+		      nj_ws,
 		      abstol,
 		      neq,
 		      &nfenj,
@@ -268,7 +291,7 @@ int evolver_ndf15(
   stepstat[3] += 1;
   stepstat[2] += nfenj;
   Jcurrent = _TRUE_; 
-   
+  new_jacobian = _TRUE_;
 	
   hmin = 16.0*DBL_EPSILON*fabs(t);
   /*Calculate initial step */
@@ -293,25 +316,28 @@ int evolver_ndf15(
   stepstat[2] += 1;
 
   /*I assume that a full jacobi matrix is always calculated in the beginning...*/
-  
-for(ii=1;ii<=neq;ii++){
-    ddfddt[ii]=0.0;
-    for(jj=1;jj<=neq;jj++){
-      ddfddt[ii]+=(jac.dfdy[ii][jj])*f0[jj];
+  //Must do something here:
+  switch(J.Stype){
+  case(L_DNR):
+    StoreDNR = (DNRformat *) J.Store;
+    Matrix = (double **) StoreDNR->Matrix;
+    for(ii=1;ii<=neq;ii++){
+      ddfddt[ii]=0.0;
+      for(jj=1;jj<=neq;jj++){
+	ddfddt[ii]+=(Matrix[ii][jj])*f0[jj];
+      }
     }
-  }
-
-  rh = 0.0;
-  for(ii=1;ii<=neq;ii++){
-    ddfddt[ii] += (tempvec1[ii] - f0[ii]) / tdel;
-    rh = max(rh,1.25*sqrt(0.5*fabs(ddfddt[ii]/wt[ii])/rtol));
-  }
-  absh = min(hmax, htspan);
-  if (absh * rh > 1.0) absh = 1.0 / rh;
-  
-  absh = max(absh, hmin);
-
-  h = tdir * absh;
+    rh = 0.0;
+    for(ii=1;ii<=neq;ii++){
+      ddfddt[ii] += (tempvec1[ii] - f0[ii]) / tdel;
+      rh = max(rh,1.25*sqrt(0.5*fabs(ddfddt[ii]/wt[ii])/rtol));
+    }
+    absh = min(hmax, htspan);
+    if (absh * rh > 1.0) absh = 1.0 / rh;
+    absh = max(absh, hmin);
+    h = tdir * absh;
+    break;
+  }  
   /* Done calculating initial step
      Get ready to do the loop:*/
   k = 1;			/*start at order 1 with BDF1	*/
@@ -322,43 +348,12 @@ for(ii=1;ii<=neq;ii++){
 	
   hinvGak = h*invGa[k-1];
   nconhk = 0; 	/*steps taken with current h and k*/
-
-  /** If we have a pattern, we apply it here and do one 
-      call to numjac with the correct pattern: */
-  if ((Ap!=NULL)&&(Ai!=NULL)){
-    for (ii=0; ii<=neq; ii++){
-      jac.spJ->Ap[ii] = Ap[ii];
-    }
-    for (ii=0; ii<Ap[neq]; ii++){
-      jac.spJ->Ai[ii] = Ai[ii];
-    }
-
-    jac.pattern_supplied = _TRUE_;
-    jac.lu_pack = sparse;
-    
-    lasagna_call(numjac((*derivs),
-			t,
-			y,
-			f0,
-			&jac,
-			&nj_ws,
-			abstol,
-			neq,
-			&nfenj,
-			parameters_and_workspace_for_derivs,
-			error_message),
-		 error_message,error_message);
-    stepstat[3] += 1;
-    stepstat[2] += nfenj;
-    Jcurrent = _TRUE_;
-    calc_C(&jac);
-    /* Calculate the optimal ordering: */
-    sp_amd(jac.Cp, jac.Ci, neq, jac.cnzmax,
-	   jac.Numerical->q,jac.Numerical->wamd);
-  }
-  lasagna_call(new_linearisation(&jac,hinvGak,neq,error_message),
-	     error_message,error_message);
+ 
+  update_linear_system_ndf15(&J, &A, hinvGak);
+  lasagna_call(linalg_factorise(linalg_workspace_A, new_jacobian, error_message),
+	       error_message, error_message);
   stepstat[4] += 1;
+  new_jacobian = _FALSE_;
   havrate = _FALSE_; /*false*/
 
   /* Doing main loop: */
@@ -389,9 +384,11 @@ for(ii=1;ii<=neq;ii++){
       adjust_stepsize(dif,(absh/abshlast),neq,k);
       hinvGak = h * invGa[k-1];
       nconhk = 0;
-      lasagna_call(new_linearisation(&jac,hinvGak,neq,error_message),
-		 error_message,error_message);
+      update_linear_system_ndf15(&J, &A, hinvGak);
+      lasagna_call(linalg_factorise(linalg_workspace_A, new_jacobian, error_message),
+		   error_message, error_message);
       stepstat[4] += 1;
+      new_jacobian = _FALSE_;
       havrate = _FALSE_;
     }
     /*		Loop for advancing one step */
@@ -447,15 +444,9 @@ for(ii=1;ii<=neq;ii++){
 	    rhs[j] = hinvGak*f0[j]-tempvec1[j];
 	  }
 								
-	  /*Solve the linear system A*x=del by using the LU decomposition stored in jac.*/
-	  if (jac.lu_pack==sparse){
-	    sp_lusolve(jac.Numerical, rhs+1, del+1);
-	  }
-	  else{
-	    eqvec(rhs,del,neq);
-	    lubksb(jac.LU,neq,jac.luidx,del);
-	  }
-
+	  /*Solve the linear system A*x=del by using the LU decomposition stored in linalg_workspace.*/
+	  lasagna_call(linalg_solve(&RHS, &DEL, linalg_workspace_A, error_message),
+		       error_message, error_message);
 	  stepstat[5]+=1;
 	  newnrm = 0.0;
 	  for(j=1;j<=neq;j++){
@@ -512,12 +503,13 @@ for(ii=1;ii<=neq;ii++){
 	    lasagna_call((*derivs)(t,y+1,f0+1,parameters_and_workspace_for_derivs,error_message),
 		       error_message,error_message);
 	    nfenj=0;
-	    lasagna_call(numjac((*derivs),t,y,f0,&jac,&nj_ws,abstol,neq,
+	    lasagna_call(numjac((*derivs),t,y,f0,&J,nj_ws,abstol,neq,
 			      &nfenj,parameters_and_workspace_for_derivs,error_message),
 		       error_message,error_message);
 	    stepstat[3] += 1;
 	    stepstat[2] += (nfenj + 1);
 	    Jcurrent = _TRUE_;
+	    new_jacobian = _TRUE_;
 	  }
 	  else if (absh <= hmin){
 	    lasagna_test(absh <= hmin, error_message,
@@ -534,9 +526,11 @@ for(ii=1;ii<=neq;ii++){
 	    nconhk = 0;
 	  }
 	  /* A new linearisation is needed in both cases */
-	  lasagna_call(new_linearisation(&jac,hinvGak,neq,error_message),
-		     error_message,error_message);
+	  update_linear_system_ndf15(&J, &A, hinvGak);
+	  lasagna_call(linalg_factorise(linalg_workspace_A, new_jacobian, error_message),
+		       error_message, error_message);
 	  stepstat[4] += 1;
+	  new_jacobian = _FALSE_;
 	  havrate = _FALSE_;
 	}
       }
@@ -591,9 +585,11 @@ for(ii=1;ii<=neq;ii++){
 	adjust_stepsize(dif,(absh/abshlast),neq,k);
 	hinvGak = h * invGa[k-1];
 	nconhk = 0;
-	lasagna_call(new_linearisation(&jac,hinvGak,neq,error_message),
-		   error_message,error_message);
+	update_linear_system_ndf15(&J, &A, hinvGak);
+	lasagna_call(linalg_factorise(linalg_workspace_A, new_jacobian, error_message),
+		     error_message, error_message);
 	stepstat[4] += 1;
+	new_jacobian = _FALSE_;
 	havrate = _FALSE_;
       }
       else {
@@ -797,7 +793,12 @@ for(ii=1;ii<=neq;ii++){
   /** Deallocate memory */
 
   free(buffer);
-
+  DestroyMultiMatrix(&J);
+  DestroyMultiMatrix(&A);
+  lasagna_call(linalg_finalise(linalg_workspace_A, error_message),
+	       error_message, error_message);
+  free(Jval);
+  free(Aval);
   /* 	free(f0); */
   /* 	free(wt); */
   /* 	free(ddfddt); */
@@ -818,8 +819,7 @@ for(ii=1;ii<=neq;ii++){
   /* 	free(dif[1]); */
   /* 	free(dif); */
 	
-  uninitialize_jacobian(&jac);
-  uninitialize_numjac_workspace(&nj_ws);
+  uninitialize_numjac_workspace(nj_ws);
   return _SUCCESS_;
 
 } /*End of program*/
@@ -1014,158 +1014,56 @@ int adjust_stepsize(double **dif, double abshdivabshlast, int neq,int k){
   return _SUCCESS_;
 }
 
-int new_linearisation(struct jacobian *jac,double hinvGak,int neq,ErrorMsg error_message){
-  double luparity, *Ax;
+int update_linear_system_ndf15(MultiMatrix *J, 
+			       MultiMatrix *A, 
+			       double hinvGak){
+  int neq=J->ncol;
+  double luparity, *Ax, *Jx;
   int i,j,*Ap,*Ai,funcreturn;
-  if(jac->lu_pack==sparse){
-    Ap = jac->spJ->Ap; Ai = jac->spJ->Ai; Ax = jac->spJ->Ax;
-    /* Construct jac->spJ->Ax from jac->xjac, the jacobian:*/
+  SCCformat *JStoreSCC,*AStoreSCC;
+  DNRformat *JStoreDNR,*AStoreDNR;
+  double **Jmat, **Amat;
+  switch(J->Stype){
+  case(L_SCC):
+    JStoreSCC = J->Store; AStoreSCC = A->Store;
+    Ap = AStoreSCC->Ap; Ai = AStoreSCC->Ai; 
+    Ax = AStoreSCC->Ax; Jx = JStoreSCC->Ax;
+    /* Construct Ax from Jx, the jacobian:*/
     for(j=0;j<neq;j++){
       for(i=Ap[j];i<Ap[j+1];i++){
 	if(Ai[i]==j){
 	  /* I'm at the diagonal */
-	  Ax[i] = 1.0-hinvGak*jac->xjac[i];
+	  Ax[i] = 1.0-hinvGak*Jx[i];
 	}
 	else{
-	  Ax[i] = -hinvGak*jac->xjac[i];
+	  Ax[i] = -hinvGak*Jx[i];
 	}
       }
     }
-    /* Matrix constructed... */
-    if (jac->pattern_supplied == _TRUE_){
-      if (jac->new_jacobian == _TRUE_){
-	//printf("Full calculation...\n");
-	//We should do a full LU decomposition again:
-	funcreturn = sp_ludcmp(jac->Numerical, jac->spJ, 1e-3);
-	lasagna_test(funcreturn == _FAILURE_,error_message,
-		     "Failure in sp_ludcmp. Possibly singular matrix!");
-	/** Column ordering in spJ_cx->Numerical is (should be) pointing 
-	    to column_ordering in spJ->Numerical.
-	    Same with Ai and Ap.
-	*/
-	jac->new_jacobian = _FALSE_;
-      }
-      else{
-	//	printf("Refactorisation..\n");
-	sp_refactor(jac->Numerical, jac->spJ);
-      }
-      jac->refactor_count++;
-    }
-    else{
-      if((jac->new_jacobian==_TRUE_)&&(jac->repeated_pattern<1)){
-	/*I have a new pattern, and I have not done a LU decomposition 
-	  since the last jacobian calculation, so	I need to do a full 
-	  sparse LU-decomposition: */
-	/* Find the sparsity pattern C = J + J':*/
-	calc_C(jac);
-	/* Calculate the optimal ordering: */
-	sp_amd(jac->Cp, jac->Ci, neq, jac->cnzmax,
-	       jac->Numerical->q,jac->Numerical->wamd);
-	/* if the next line is uncomented, the code uses natural ordering instead of AMD ordering */
-	/*jac->Numerical->q = NULL;*/
-	funcreturn = sp_ludcmp(jac->Numerical, jac->spJ, 1e-3);
-	lasagna_test(funcreturn == _FAILURE_,error_message,
-		     "Failure in sp_ludcmp. Possibly singular matrix!");
-	jac->new_jacobian = _FALSE_;
-      }
-      else{
-	/* I have a repeated pattern, so I can just refactor:*/
-	sp_refactor(jac->Numerical, jac->spJ);
-      }
-    }
-  }
-  else{
+    break;
+  case (L_DNR):
     /* Normal calculation: */
+    JStoreDNR = J->Store; AStoreDNR = A->Store;
+    Jmat = (double **) JStoreDNR->Matrix;
+    Amat = (double **) AStoreDNR->Matrix;    
     for(i=1;i<=neq;i++){
       for(j=1;j<=neq;j++){
-	jac->LU[i][j] = - hinvGak * jac->dfdy[i][j];
-	if(i==j) jac->LU[i][j] +=1.0;
+	Amat[i][j] = - hinvGak * Jmat[i][j];
+	if(i==j) Amat[i][j] +=1.0;
       }
     }
-    /*Dense LU decomposition: */
-    funcreturn = ludcmp(jac->LU,neq,jac->luidx,&luparity,jac->LUw);
-    lasagna_test(funcreturn == _FAILURE_,error_message,
-	       "Failure in ludcmp. Possibly singular matrix!");
   }
   return _SUCCESS_;
 }
 
 /** Helper functions */
-int lubksb(double **a, int n, int *indx, double b[]){
-  int i,ii=0,ip,j;
-  double sum;
-  for (i=1;i<=n;i++) {
-    ip=indx[i];
-    if((ip<1)||(ip>n)) printf("Error in LU backsubstitution. (index is %d, n=%d)\n",ip,n);
-    sum=b[ip];
-    b[ip]=b[i];
-    if (ii) for (j=ii;j<=i-1;j++) sum -= a[i][j]*b[j];
-    else if (sum) ii=i;
-    b[i]=sum;
-  }
-  for (i=n;i>=1;i--) {
-    sum=b[i];
-    for (j=i+1;j<=n;j++) sum -= a[i][j]*b[j];
-    b[i]=sum/a[i][i];
-  }
-  return _SUCCESS_;
-}
-
-
-int ludcmp(double **a, int n, int *indx, double *d, double *vv){
-  int i,imax=0,j,k;
-  double big,dum,sum,temp;
-  *d=1.0;
-  for (i=1;i<=n;i++) {
-    big=0.0;
-    for (j=1;j<=n;j++) {
-      if ((temp=fabs(a[i][j])) > big) big=temp;
-    }
-    if (big == 0.0) return _FAILURE_;
-    vv[i]=1.0/big;
-  }
-  for (j=1;j<=n;j++) {
-    for (i=1;i<j;i++) {
-      sum=a[i][j];
-      for (k=1;k<i;k++) sum -= a[i][k]*a[k][j];
-      a[i][j]=sum;
-    }
-    big=0.0;
-    for (i=j;i<=n;i++) {
-      sum=a[i][j];
-      for (k=1;k<j;k++) sum -= a[i][k]*a[k][j];
-      a[i][j]=sum;
-      if ( (dum=vv[i]*fabs(sum)) >= big) {
-	big=dum;
-	imax=i;
-      }
-    }
-    if (j != imax) {
-      for (k=1;k<=n;k++) {
-	dum=a[imax][k];
-	a[imax][k]=a[j][k];
-	a[j][k]=dum;
-      }
-      *d = -(*d);
-      vv[imax]=vv[j];
-    }
-    indx[j]=imax;
-    if (a[j][j] == 0.0) a[j][j]=TINY;
-    if (j != n) {
-      dum=1.0/(a[j][j]);
-      for (i=j+1;i<=n;i++) a[i][j] *= dum;
-    }
-  }
-  return _SUCCESS_;
-}
 
 /**********************************************************************/
 /* Here are some routines related to the calculation of the jacobian: */
 /* "numjac", "initialize_jacobian", "uninitialize_jacobian",					*/
 /* "initialize_numjac_workspace", "uninitialize_numjac_workspace".		*/
 /**********************************************************************/
-int numjac(
-	   int (*derivs)(double x, 
+int numjac(int (*derivs)(double x, 
 			 double * y,
 			 double * dy, 
 			 void * parameters_and_workspace, 
@@ -1173,8 +1071,8 @@ int numjac(
 	   double t, 
 	   double *y, 
 	   double *fval,
-	   struct jacobian *jac, 
-	   struct numjac_workspace *nj_ws,
+	   MultiMatrix* J, 
+	   void *numjac_workspace,
 	   double thresh, 
 	   int neq, 
 	   int *nfe, 
@@ -1184,6 +1082,7 @@ int numjac(
 	implementation in MATLAB, but a feature for recognising sparsity in the
 	jacobian and taking advantage of that has been added.
   */
+  struct numjac_workspace *nj_ws=numjac_workspace;
   double eps=DBL_EPSILON, br=pow(eps,0.875),bl=pow(eps,0.75),bu=pow(eps,0.25);
   double facmin=pow(eps,0.78),facmax=0.1;
   int logjpos, pattern_broken;
@@ -1192,20 +1091,13 @@ int numjac(
   double maxval1,maxval2;
   int colmax,group,row,nz,nz2;
   double Fdiff_absrm,Fdiff_new;
-  double **dFdy,*fac;
+  double **dFdy,*fac, *Ax;
   int *Ap=NULL, *Ai=NULL;
   FILE *jacfile;
+  SCCformat *StoreSCC;
+  DNRformat *StoreDNR;
 
-  dFdy = jac->dfdy; /* Assign pointer to dfdy directly for easier notation. */
-  fac = jac->jacvec;
-  if (jac->lu_pack==sparse){
-    Ap = jac->spJ->Ap;
-    Ai = jac->spJ->Ai;
-  }
-	
-  /* Set new_jacobian flag: */
-  jac->new_jacobian = _TRUE_;
-	
+  fac = nj_ws->jacvec;
   for(j=1;j<=neq;j++){
     nj_ws->yscale[j] = max(fabs(y[j]),thresh);
     nj_ws->del[j] = (y[j] + fac[j] * nj_ws->yscale[j]) - y[j];
@@ -1243,18 +1135,15 @@ int numjac(
     }
   }
 
-  /* Sparse calculation?*/
-  if ((jac->pattern_supplied==_TRUE_)||
-      ((jac->lu_pack==sparse)&&
-       (jac->repeated_pattern >= jac->trust_sparse))){
+  switch(J->Stype){
+  case(L_SCC):
+    StoreSCC = J->Store;
+    Ap = StoreSCC->Ap;
+    Ai = StoreSCC->Ai;
+    Ax = (double*) StoreSCC->Ax;
     //printf("Sparse calculation..neq=%d, has grouping=%d\n",neq,jac->has_grouping);
     //printf("jac->pattern_supplied = %d\n",jac->pattern_supplied);
-    /* Everything done sparse'ly. Do we have a grouping? */
-    if (jac->has_grouping==0){
-      jac->max_group = column_grouping2(jac->spJ,jac->col_group,jac->col_wi);
-      jac->has_grouping = 1;
-    }
-    colmax = jac->max_group+1;
+    colmax = nj_ws->max_group+1;
     //printf("->groups=%d/%d.\n",colmax,neq);
     for(j=1;j<=colmax;j++){
       /*loop over groups */
@@ -1263,12 +1152,15 @@ int numjac(
 	/*Add y-vector.. */
 	nj_ws->ydel_Fdel[i][j] = y[i];
 	/*Add del of all groupmembers:*/
-	if(jac->col_group[i-1]==group) 
+	if(nj_ws->col_group[i-1]==group) 
 	  nj_ws->ydel_Fdel[i][j] +=nj_ws->del[i];
       }
     }
-  }
-  else{
+    break;
+  case(L_DNR):
+    //Ordinary dense method
+    StoreDNR = J->Store;
+    dFdy = (double **)StoreDNR->Matrix; /* Assign pointer to dfdy directly for easier notation. */
     //printf("Normal calculation...\n");
     /*Normal calculation: */
     colmax = neq;
@@ -1278,6 +1170,8 @@ int numjac(
       }
       nj_ws->ydel_Fdel[j][j] += nj_ws->del[j];
     }
+
+    break;
   }
 
   /* The next section should work regardless of sparse...*/
@@ -1298,15 +1192,14 @@ int numjac(
       nj_ws->ydel_Fdel[i][j] = nj_ws->ffdel[i];
   }
 
-
-  /*Using the Fdel array, form the jacobian and construct max-value arrays.
-    First we do it for the sparse case, then for the normal case:*/
-  if ((jac->pattern_supplied==_TRUE_)||
-      ((jac->lu_pack==sparse)&&(jac->repeated_pattern >= jac->trust_sparse))){
+  switch(J->Stype){
+  case(L_SCC):
+    /*Using the Fdel array, form the jacobian and construct max-value arrays.
+      First we do it for the sparse case, then for the normal case:*/
     /* Sparse case:*/
     for(j=0;j<neq;j++){
       /*Loop over columns, and assign corresponding group:*/
-      group = jac->col_group[j];
+      group = nj_ws->col_group[j];
       Fdiff_new = 0.0;
       Fdiff_absrm = 0.0;
       
@@ -1321,13 +1214,13 @@ int numjac(
 	  nj_ws->Difmax[j+1] = Fdiff_new;
 	}
 	/* Assign value to sparse rep of jacobian: */
-	jac->xjac[i] = Fdiff_new/nj_ws->del[j+1];
+	Ax[i] = Fdiff_new/nj_ws->del[j+1];
       }
       /* The maximum numerical value of Fdel in true column j+1*/
       nj_ws->absFdelRm[j+1] = fabs(nj_ws->ydel_Fdel[nj_ws->Rowmax[j+1]][group+1]);
     }
-  }
-  else{
+    break;
+  case(L_DNR):
     /*Normal case:*/
     for(j=1;j<=neq;j++){
       Fdiff_new = 0.0;
@@ -1346,7 +1239,7 @@ int numjac(
       nj_ws->absFdelRm[j] = fabs(nj_ws->ydel_Fdel[nj_ws->Rowmax[j]][j]);
     }
   }
-
+  
   /* Adjust fac for next call to numjac. */
   for(i=1;i<=neq;i++){
     nj_ws->absFvalue[i] = fabs(fval[i]);
@@ -1409,15 +1302,15 @@ int numjac(
 	    /* The new difference is more significant, so
 	       use the column computed with this increment.
 	       This depends on wether we are in sparse mode or not: */
-	    if ((jac->pattern_supplied==_TRUE_)||
-		((jac->lu_pack==sparse)&&
-		 (jac->repeated_pattern >= jac->trust_sparse))){
+	    switch(J->Stype){
+	    case(L_SCC):
 	      for(i=Ap[j-1];i<Ap[j];i++) 
-		jac->xjac[i]=nj_ws->tmp[Ai[i]];
-	    }
-	    else{
+		Ax[i]=nj_ws->tmp[Ai[i]];
+	      break;
+	    case(L_DNR):
 	      for(i=1;i<=neq;i++) 
 		dFdy[i][j]=nj_ws->tmp[i];
+	      break;
 	    }
 	    /* Adjust fac for the next call to numjac. */
 	    ffscale = max(fabs(nj_ws->ffdel[rowmax2]),nj_ws->absFvalue[rowmax2]);
@@ -1437,95 +1330,6 @@ int numjac(
       }
     }
   }
-  /** If lu_pack = sparse but I still don't trust the sparsity pattern, 
-      go through the full calculated jacobi-matrix, deduce the sparsity 
-      pattern, compare with the old pattern, and write the new sparse 
-      Jacobi matrix. If I do this in a clever way, I only have to walk 
-      through the jacobian once, and I don't need any local storage.
-  */
-  if ((jac->lu_pack==sparse)&&
-      (jac->pattern_supplied==_FALSE_)&&
-      (jac->repeated_pattern < jac->trust_sparse)){
-    nz=0; /*Number of non-zeros */
-    Ap[0]=0; /*<-Always is.. */
-    pattern_broken = _FALSE_;
-    for(j=1;j<=neq;j++){
-      for(i=1;i<=neq;i++){
-	if ((i==j)||(fabs(dFdy[i][j])!=0.0)){
-	  /* Diagonal or non-zero index found. */
-	  if (nz>=jac->max_nonzero){
-	    /* Too many non-zero points to take advantage of sparsity.*/
-	    jac->lu_pack = dense;
-	    break;
-	  }
-	  /* Test pattern if it is still unbroken: */
-	  /* Two conditions must be met if the pattern is intact: Ap[j-1]<=nz<Ap[j],
-	     so that we are in the right column, and (i-1) must exist in column. Ai[nz]*/
-	  /* We should first test if nz is in the column, otherwise pattern is dead:*/
-	  if ((pattern_broken==_FALSE_)&&(jac->has_pattern==_TRUE_)){
-	    if ((nz<Ap[j-1])||(nz>=Ap[j])){
-	      /* If we are no longer in the right column, pattern is broken for sure. */
-	      pattern_broken = _TRUE_;
-	    }
-	  }
-	  if ((pattern_broken==_FALSE_)&&(jac->has_pattern==_TRUE_)){
-	    /* Up to this point, the new jacobian has managed to fit in the old
-	       sparsity pattern..*/
-	    if (Ai[nz]!=(i-1)){
-	      /* The current non-zero rownumber does not fit the current entry in the
-		 sparse matrix. Pattern MIGHT be broken. Scan ahead in the sparse matrix
-		 to search for the row entry: (Remember: the indices are sorted..)*/
-	      pattern_broken = _TRUE_;
-	      for(nz2=nz; (nz2<Ap[j])&&(Ai[nz2]<=(i-1)); nz2++){
-		/* Go through the rest of the column with the added constraint that
-		   the row index in the sparse matrix should be smaller than the current
-		   row index i-1:*/
-		if (Ai[nz2]==(i-1)){
-		  /* sparsity pattern recovered.. */
-		  pattern_broken = _FALSE_;
-		  nz = nz2;
-		  break;
-		}
-		/* Write a zero entry in the sparse matrix, in case we recover pattern. */
-		jac->xjac[nz2] = 0.0;
-	      }
-	    }
-	  }
-	  /* The following works no matter the status of the pattern: */
-	  /* Write row_number: */
-	  Ai[nz] = i-1;
-	  /* Write value: */
-	  jac->xjac[nz] = dFdy[i][j];
-	  nz++;
-	}
-      }
-      /* Break this loop too if I have hit max non-zero points: */
-      if (jac->lu_pack==dense) break;
-      Ap[j]=nz;
-    }
-    printf("nz's = %d / %d, lu_pack = %d\n",nz,jac->max_nonzero,jac->lu_pack);
-    if (jac->lu_pack==sparse){
-      if ((jac->has_pattern==_TRUE_)&&(pattern_broken==_FALSE_)){
-	/*New jacobian fitted into the current sparsity pattern:*/
-	
-	jac->repeated_pattern++;
-	/* printf("\n Found repeated pattern. nz=%d/%d and 
-	   rep.pat=%d.",nz,neq*neq,jac->repeated_pattern); */
-      }
-      else{
-	/*Something has changed (or first run), better still do the full calculation..*/
-	jac->repeated_pattern = 0;
-      }
-      jac->has_pattern = 1;
-      /**      jacfile=fopen("jac_num_Ap.dat","w");
-      for (i=0; i<=neq; i++) fprintf(jacfile,"%d ",Ap[i]);
-      fclose(jacfile);
-      jacfile=fopen("jac_num_Ai.dat","w");
-      for (i=0; i<Ap[neq]; i++) fprintf(jacfile,"%d ",Ai[i]);
-      fclose(jacfile);
-      */
-    }
-  }
   return _SUCCESS_;
 } /* End of numjac */
 
@@ -1533,10 +1337,10 @@ int initialize_jacobian(struct jacobian *jac, int neq, ErrorMsg error_message){
   int i; 
 
   if (neq>15){
-    jac->lu_pack = sparse;
+    jac->use_sparse = 1;
   }
   else{
-    jac->lu_pack = dense;
+    jac->use_sparse = 0;
   }
   jac->max_nonzero = (int)(max(3*neq,0.20*neq*neq));		 
   jac->cnzmax = 12*jac->max_nonzero/5;
@@ -1572,7 +1376,7 @@ int initialize_jacobian(struct jacobian *jac, int neq, ErrorMsg error_message){
   lasagna_alloc(jac->luidx,sizeof(int)*(neq+1),error_message);
 	
   /*Setup memory for the sparse method, if used: */
-  if (jac->lu_pack == sparse){
+  if (jac->use_sparse){
     jac->sparse_stuff_initialized = 1;
 
     
@@ -1619,10 +1423,16 @@ int uninitialize_jacobian(struct jacobian *jac){
   return _SUCCESS_;
 }
 
-int initialize_numjac_workspace(struct numjac_workspace * nj_ws,int neq, ErrorMsg error_message){
-  int i,neqp=neq+1;
+int initialize_numjac_workspace(MultiMatrix *J,
+				void **numjac_workspace,
+				ErrorMsg error_message){
+  struct numjac_workspace * nj_ws;
+  SCCformat *StoreSCC; 
+  int i,neq = J->ncol, neqp=neq+1;
+  
+  lasagna_alloc(nj_ws, sizeof(struct numjac_workspace), error_message);
   /* Allocate vectors and matrices: */
-
+  lasagna_alloc(nj_ws->jacvec,sizeof(double)*neqp,error_message);
   lasagna_alloc(nj_ws->yscale,sizeof(double)*neqp,error_message);
   lasagna_alloc(nj_ws->del,sizeof(double)*neqp,error_message);
   lasagna_alloc(nj_ws->Difmax,sizeof(double)*neqp,error_message);
@@ -1634,20 +1444,32 @@ int initialize_numjac_workspace(struct numjac_workspace * nj_ws,int neq, ErrorMs
   lasagna_alloc(nj_ws->yydel,sizeof(double)*neqp,error_message);
   lasagna_alloc(nj_ws->tmp,sizeof(double)*neqp,error_message);
 	
-  lasagna_alloc(nj_ws->ydel_Fdel,sizeof(double*)*(neq+1),error_message); /* Allocate vector of pointers to rows of matrix.*/
+  /* Allocate vector of pointers to rows of matrix.*/
+  lasagna_alloc(nj_ws->ydel_Fdel,sizeof(double*)*(neq+1),error_message); 
   lasagna_alloc(nj_ws->ydel_Fdel[1],sizeof(double)*(neq*neq+1),error_message);
   nj_ws->ydel_Fdel[0] = NULL;
   for(i=2;i<=neq;i++) nj_ws->ydel_Fdel[i] = nj_ws->ydel_Fdel[i-1]+neq; /* Set row pointers... */ 
 	
   lasagna_alloc(nj_ws->logj,sizeof(int)*neqp,error_message);
   lasagna_alloc(nj_ws->Rowmax,sizeof(int)*neqp,error_message);
-
   /* Done allocating stuff */
+  /* Initialize jacvec to sqrt(eps):*/
+  for (i=1;i<=neq;i++) nj_ws->jacvec[i]=1.490116119384765597872e-8;
+  nj_ws->col_group = NULL;
+  if (J->Stype==L_SCC){
+    StoreSCC = J->Store;
+    lasagna_alloc(nj_ws->col_group, sizeof(int)*neq, error_message);
+    nj_ws->max_group = get_column_grouping(StoreSCC->Ap, StoreSCC->Ai, 
+					  neq, nj_ws->col_group, nj_ws->Rowmax);
+  }
+  *numjac_workspace = (void *) nj_ws;
   return _SUCCESS_;
 }
 
-int uninitialize_numjac_workspace(struct numjac_workspace * nj_ws){
+int uninitialize_numjac_workspace(void *numjac_workspace){
+  struct numjac_workspace * nj_ws = numjac_workspace;
   /* Deallocate vectors and matrices: */
+  free(nj_ws->jacvec);
   free(nj_ws->yscale);
   free(nj_ws->del);
   free(nj_ws->Difmax);
@@ -1663,5 +1485,10 @@ int uninitialize_numjac_workspace(struct numjac_workspace * nj_ws){
   free(nj_ws->ydel_Fdel);
   free(nj_ws->logj);
   free(nj_ws->Rowmax);
+
+  if (nj_ws->col_group != NULL)
+    free(nj_ws->col_group);
+
+  free(nj_ws);
   return _SUCCESS_;
 }

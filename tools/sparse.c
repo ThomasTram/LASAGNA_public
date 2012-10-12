@@ -368,6 +368,50 @@ int column_grouping2(sp_mat *G, int *col_g, int *filled){
   }
   return (groupnum-1);
 }
+
+int get_column_grouping(int *Ap, int *Ai, int neq, int *col_g, int *filled){
+  int testcol,groupnum,fitted;
+  int i, done;
+	
+  for(i=0;i<neq;i++) 
+    col_g[i]=-1;
+  
+  for(groupnum=0; groupnum<neq; groupnum++){
+    //Reset filled vector:
+    for (i=0; i<neq; i++){
+      filled[i] = 0;
+    }
+    //Try to assign remaining columns to current group:
+    done = _TRUE_;
+    for (testcol=0; testcol<neq; testcol++){
+      if (col_g[testcol]!=-1){
+	continue;
+      }
+      done = _FALSE_;
+      //Is current testcol in conflict with the groups filling vector?
+      fitted = _TRUE_;
+      for (i=Ap[testcol]; i<Ap[testcol+1]; i++){
+	if (filled[Ai[i]] != 0){
+	  fitted = _FALSE_;
+	  break;
+	}
+      }
+      if (fitted == _TRUE_){
+	//Test succesfull
+	col_g[testcol] = groupnum;
+	for (i=Ap[testcol]; i<Ap[testcol+1]; i++){
+	  filled[Ai[i]] = 1;
+	}
+      }
+    }
+    if (done == _TRUE_){
+      //No columns remaining.
+      //No column belongs to current groupnum.
+      break;
+    }
+  }
+  return (groupnum-1);
+}
       
 
 

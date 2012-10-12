@@ -29,8 +29,8 @@ CC = icc
 #LDFLAG   = -O0 -Wall -ggdb -g
 #CCFLAG   = -O4 -Wall -g --fast-math
 #LDFLAG   = -O4 -Wall -g --fast-math
-#CCFLAG   = -O2 -g
-#LDFLAG   = -O2 -g
+CCFLAG   = -O1 -g
+LDFLAG   = -O1 -g
 #CCFLAG   = -fast -w2
 #LDFLAG   = -fast -w2
 #CCFLAG   = -complex-limited-range -g -O3 -B/usr/lib/i386-linux-gnu -I/usr/include/i386-linux-gnu
@@ -41,8 +41,10 @@ CC = icc
 #LDFLAG = $(LOADOPTS) -D _SUPERLU
 #CCFLAG = $(CFLAGS) $(CDEFS) $(BLASDEF)
 #LDFLAG = $(LOADOPTS)
-CCFLAG   = -O0 -Wall -ggdb -g
-LDFLAG   = -O0 -Wall -ggdb -g
+#CCFLAG   = -O0 -Wall -ggdb -g
+#LDFLAG   = -O0 -Wall -ggdb -g
+#CCFLAG   = -O3 -axavx -msse3 -g
+#LDFLAG   = -O3 -axavx -msse3 -g
 
 
 INCLUDES = ../include -I$(HEADERSLU)
@@ -51,14 +53,9 @@ INCLUDES = ../include -I$(HEADERSLU)
 %.o:  %.c .base
 	cd $(WRKDIR);$(CC) $(CCFLAG) $(CDEFS) $(BLASDEF) -I$(INCLUDES) -c ../$< -o $*.o
 
-TOOLS = newton.o evolver_ndf15.o sparse.o arrays.o evolver_rk45.o evolver_radau5.o mat_io.o parser.o 
-#TOOLS = newton.o evolver_ndf15_SLU.o sparse.o arrays.o evolver_rk45.o evolver_radau5.o mat_io.o parser.o
-
-LINALG_WRAPPER_DENSE_NR = linalg_wrapper_dense_NR.o
-
-LINALG_WRAPPER_SPARSE = linalg_wrapper_sparse.o
-
-LINALG_WRAPPER_SUPERLU = linalg_wrapper_SuperLU.o
+EVO_TOOLS  = multimatrix.o sparse.o linalg_wrapper_dense_NR.o linalg_wrapper_sparse.o linalg_wrapper_SuperLU.o 
+IO_TOOLS = mat_io.o parser.o
+TOOLS = $(IO_TOOLS) $(EVO_TOOLS) newton.o evolver_ndf15.o  arrays.o evolver_rk45.o evolver_radau5.o  
 
 TEST_WRAPPER_DENSE = test_wrapper_dense.o
 
@@ -99,31 +96,31 @@ all: lasagna lasagna2 extract_matrix
 lasagna: $(TOOLS) $(QKE_EQUATIONS) $(BACKGROUND) $(INPUT) $(LASAGNA)
 	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) $(LIBSLU)/$(SUPERLULIB) $(BLASLIB) $(MPLIB) -lm
 
-lasagna2: $(TOOLS) $(QKE_EQUATIONS) $(BACKGROUND) $(INPUT) $(LASAGNA2)
+lasagna2:$(TOOLS) $(QKE_EQUATIONS) $(BACKGROUND) $(INPUT) $(LASAGNA2)
 	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) $(LIBSLU)/$(SUPERLULIB) $(BLASLIB) $(MPLIB) -lm
 
 test_profile: $(TOOLS) $(QKE_EQUATIONS) $(BACKGROUND) $(TEST_PROFILE)
 	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
 
-extract_matrix: $(TOOLS) $(EXTRACT_MATRIX)
+extract_matrix: $(IO_TOOLS) $(EXTRACT_MATRIX)
 	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) $(LIBSLU)/$(SUPERLULIB) $(BLASLIB) -lm
 
-test_rkode: $(TOOLS) $(TEST_RKODE)
+test_rkode:$(TOOLS) $(TEST_RKODE)
 	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
 
-test_vdp: $(TOOLS) $(TEST_VDP)
+test_vdp:$(TOOLS) $(TEST_VDP)
 	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
 
 test_matio: $(TOOLS) $(TEST_MATIO)
 	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
 
-test_wrapper_dense: multimatrix.o $(LINALG_WRAPPER_DENSE_NR) $(TEST_WRAPPER_DENSE) 
+test_wrapper_dense: $(EVO_TOOLS)$ $(TEST_WRAPPER_DENSE) 
 	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
 
-test_wrapper_sparse: multimatrix.o sparse.o $(LINALG_WRAPPER_SPARSE) $(LINALG_WRAPPER_SUPERLU) $(TEST_WRAPPER_SPARSE)
+test_wrapper_sparse: $(EVO_TOOLS)$ $(TEST_WRAPPER_SPARSE)
 	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) $(LIBSLU)/$(SUPERLULIB) $(BLASLIB) $(MPLIB) -lm
 
-test_partial: $(TOOLS) $(QKE_EQUATIONS) $(BACKGROUND) $(TEST_PARTIAL)
+test_partial:$(TOOLS) $(QKE_EQUATIONS) $(BACKGROUND) $(TEST_PARTIAL)
 	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
 
 tar:

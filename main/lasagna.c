@@ -13,7 +13,7 @@ int main(int argc, char **argv) {
   int func_return;
   clock_t start, end;
   double cpu_time_used;
-
+  EvolverOptions options;
   extern int evolver_radau5();
   extern int evolver_ndf15(); 	
   extern int evolver_rkdp45(); 	
@@ -62,27 +62,45 @@ int main(int argc, char **argv) {
 
   qke_init_output(&qke_struct);
 
+  //Handle options:
+  DefaultEvolverOptions(&options);
+  options.used_in_output=interp_idx;
+  options.RelTol = qke_struct.rtol;
+  options.AbsTol = qke_struct.abstol;
+  options.t_vec = qke_struct.Tvec; 
+  options.tres = qke_struct.Tres;
+  options.Ap = qke_struct.Ap;
+  options.Ai = qke_struct.Ai;
+  options.output = qke_store_output;
+  //  options.print_variables = qke_print_L;
+  //  options.stop_function = qke_stop_at_L;
+  //options.use_sparse = _FALSE_;
+  options.use_sparse = _TRUE_;
+  /**
+  options.linalg_initialise = &(linalg_initialise_dense_NR);
+  options.linalg_finalise = &(linalg_finalise_dense_NR);
+  options.linalg_factorise = &(linalg_factorise_dense_NR);
+  options.linalg_solve = &(linalg_solve_dense_NR);
+  */
+  options.linalg_initialise = &(linalg_initialise_sparse);
+  options.linalg_finalise = &(linalg_finalise_sparse);
+  options.linalg_factorise = &(linalg_factorise_sparse);
+  options.linalg_solve = &(linalg_solve_sparse);
+
+  options.EvolverVerbose=4;
 
   printf("theta: %g\n",qke_struct.theta_zero);
   start = clock();  
+  
     func_return = generic_evolver(qke_derivs,
+				  &qke_struct,
 				  qke_struct.T_initial,
 				  qke_struct.T_final,
 				  y_inout, 
-				  interp_idx,
 				  qke_struct.neq, 
-				  &qke_struct,
-				  qke_struct.rtol, 
-				  qke_struct.abstol, 
-				  qke_struct.Tvec, 
-				  qke_struct.Tres,
-				  qke_struct.Ap,
-				  qke_struct.Ai,
-				  qke_store_output,
-				  qke_print_L,//NULL,
-				  NULL,//qke_stop_at_L,
+				  &(options),
 				  error_message);
-  
+
   end = clock();
   cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
   printf("CPU time used: %g minutes.\n",cpu_time_used/60.0);    

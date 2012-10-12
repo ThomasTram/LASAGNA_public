@@ -28,6 +28,7 @@ extern "C" {
   int linalg_finalise_sparse(void *linalg_workspace,
 			     ErrorMsg error_message);
   int linalg_factorise_sparse(void *linalg_workspace,
+			      int has_changed_significantly,
 			      ErrorMsg error_message);
   int linalg_solve_sparse(MultiMatrix *B, 
 			  MultiMatrix *X,

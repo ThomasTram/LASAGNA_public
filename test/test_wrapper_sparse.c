@@ -183,6 +183,7 @@ int main(){
     }
 
     funcreturn = linalg_factorise(linalg_workspace,
+				  _TRUE_,
 				  error_message);
     if (funcreturn==_FAILURE_){
       printf("Error: %s\n",error_message);

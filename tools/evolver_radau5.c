@@ -1,6 +1,5 @@
 #include "common.h"
 #include "evolver_radau5.h"
-
 /**
    Statistics is saved in the stepstat[6] vector. The entries are:
    stepstat[0] = Successful steps.
@@ -10,42 +9,35 @@
    stepstat[4] = Number of LU decompositions.
    stepstat[5] = Number of linear solves.
 */
-int evolver_radau5(
-		  int (*derivs)(double x,
-				double * y,
-				double * dy,
-				void * parameters_and_workspace, 
-				ErrorMsg error_message),
-		  double t_ini,
-		  double t_final,
-		  double * y0, 
-		  int * interpidx,
-		  int neq, 
-		  void * parameters_and_workspace_for_derivs,
-		  double rtol, 
-		  double abstol, 
-		  double * t_vec, 
-		  int tres,
-		  int *Ap,
-		  int *Ai,
-		  int (*output)(double x,
-				double y[],
-				double dy[],
-				int index_x,
-				void * parameters_and_workspace,
-				ErrorMsg error_message),
-		  int (*print_variables)(double x, 
-					 double y[], 
-					 double dy[], 
-					 void *parameters_and_workspace,
-					 ErrorMsg error_message),
-		  int (*stop_function)(double x, 
-				       double y[], 
-				       double dy[], 
-				       void *parameters_and_workspace,
-				       ErrorMsg error_message),
-		  ErrorMsg error_message){
+int evolver_radau5(int (*derivs)(double x,double * y,double * dy,
+				 void * parameters_and_workspace, ErrorMsg error_message),
+		   void * parameters_and_workspace_for_derivs,
+		   double t_ini,
+		   double t_final,
+		   double * y0, 
+		   int neq, 
+		   EvolverOptions *options,
+		   ErrorMsg error_message){
 	
+  /** Handle options: */
+  int *interpidx, *stepstat, verbose, tres; 
+  double abstol, rtol, *t_vec;
+  int (*linalg_initialise)(MultiMatrix *, EvolverOptions *, void **, ErrorMsg);
+  int (*linalg_finalise)(void *, ErrorMsg);
+  int (*linalg_factorise)(void *, int, ErrorMsg);
+  int (*linalg_solve)(MultiMatrix *, MultiMatrix *, void *, ErrorMsg);
+  int (*output)(double t, double *y, double *dy, int i, void *p, ErrorMsg err);
+  int (*print_variables)(double t, double *y, double *dy, void *p, ErrorMsg err);
+  int (*stop_function)(double t, double *y, double *dy, void *p, ErrorMsg err);
+  interpidx = options->used_in_output; stepstat = &(options->Stats[0]);
+  verbose = options->EvolverVerbose; tres = options->tres; abstol = options->AbsTol; 
+  rtol = options->RelTol; t_vec = options->t_vec; 
+  linalg_initialise = options->linalg_initialise; linalg_finalise = options->linalg_finalise;
+  linalg_factorise = options->linalg_factorise; linalg_solve = options->linalg_solve;
+  output = options->output; print_variables=options->print_variables; 
+  stop_function = options->stop_function;
+  int *Ai, *Ap, nnz;
+
   /* Constants: */
   double Tinv[9]= 
     {4.178718591551904727,   0.327682820761062387,   0.523376445499449548,
@@ -74,9 +66,8 @@ int evolver_radau5(
   double theta_reuse_jacobian=0.1, same_step_lower=0.99, same_step_upper=2.0;
   double threshold = abstol/rtol;
   double tol_newton = rtol*max(100*DBL_EPSILON,min(0.03,sqrt(rtol)));
-  int newt_iter_max = 10, verbose=2;
+  int newt_iter_max = 10;
 
-  int stepstat[6] = {0, 0, 0, 0, 0, 0};
   int newt_iter, tdir, next=0, nfenj;
   double abshlast=0.0, absh, abshnew; 
   double theta, theta_k, theta_k_old=1.0, eta=1.0, conv_est, conv_cor;
@@ -84,7 +75,7 @@ int evolver_radau5(
   double norm_dW, norm_dW_old=1.0, norm_err;
   double z1,z2,z3,tau;
 
-  int first_step = _TRUE_, Newton_converged, got_ynew, J_current;
+  int first_step = _TRUE_, Newton_converged, got_ynew, J_current, new_jacobian;
   int reuse_stepsize, reuse_jacobian, last_failed=_TRUE_;
 
   double (*error_norm)(double *y, double *err_y, double threshold, int neq);
@@ -95,38 +86,17 @@ int evolver_radau5(
   double *W, *dW, *Y0pZ, *rhs, *Fi, *Zlast;
   double *err, *diff, *xtemp, *ytemp, *ynew, *f0, *ylast, *ftmp, *dfdt;
   double *delta_w;
-  double *dW_buf, *rhs_buf, *err_buf;
-  double complex *rhs_cx, *delta_w_cx, *delta_w_cx_buf;
-#ifdef _SUPERLU
-  doublecomplex *rhs_cx2, *delta_w_cx2, *delta_w_cx_buf2;
-#endif
-  struct jacobian jac;
-  struct jacobian_plus jac_plus;
-  struct numjac_workspace nj_ws;
-  //Stuff for SuperLU
-#ifdef _SUPERLU
-  int nnz;
-  trans_t  trans;
-  int panel_size, relax;
-  fact_t   fact;
-  yes_no_t refact, usepr;
-  double diag_pivot_thresh, drop_tol;
-  void *work;
-  int lwork;
-  SuperMatrix SMb, SMbz, SMerr;
-  int Alen, *Aw;
-  fact               = DOFACT;
-  refact             = NO;
-  trans              = NOTRANS;
-  panel_size         = sp_ienv(1);
-  relax              = sp_ienv(2);
-  diag_pivot_thresh  = 1.0;
-  usepr              = NO;
-  drop_tol           = 0.0;
-  work               = NULL;
-  lwork              = 0;
-#endif
-
+  double *dW_buf, *rhs_buf, *err_buf, *diff_buf;
+  double complex *rhs_cx, *rhs_cx_buf, *delta_w_cx, *delta_w_cx_buf;
+  
+  /* Matrices for jacobian and linearisation: */
+  MultiMatrix J, A, Z, RHS, RHS_CX, DIFF, DW, DW_CX, ERR;
+  double *Jval, *Aval;
+  double complex *Zval;
+  void *linalg_workspace_A, *linalg_workspace_Z, *nj_ws;
+  double **Matrix;
+  DNRformat *StoreDNR;
+ 
   /** Debug area: 
    
   int k;
@@ -163,7 +133,8 @@ int evolver_radau5(
   rhs = rhs_buf +1;
   err_buf = malloc((neq+1)*sizeof(double));
   err = err_buf+1;
-  diff = malloc(neq*sizeof(double));
+  diff_buf = malloc((neq+1)*sizeof(double));
+  diff = diff_buf+1;
   xtemp = malloc(neq*sizeof(double));
   ytemp = malloc(neq*sizeof(double));
   ynew = malloc(neq*sizeof(double));
@@ -172,24 +143,10 @@ int evolver_radau5(
   ftmp = malloc(neq*sizeof(double));
   dfdt = malloc(neq*sizeof(double));
   delta_w = malloc(neq*sizeof(double));
-#ifdef _SUPERLU
-  rhs_cx2 = malloc(neq*sizeof(doublecomplex));
-  delta_w_cx_buf2 = malloc((neq+1)*sizeof(doublecomplex));
-  delta_w_cx2 = delta_w_cx_buf2 + 1;
-#endif
-  rhs_cx = malloc(neq*sizeof(double complex));
+  rhs_cx_buf = malloc((neq+1)*sizeof(double complex));
+  rhs_cx = rhs_cx_buf +1;
   delta_w_cx_buf = malloc((neq+1)*sizeof(double complex));
   delta_w_cx = delta_w_cx_buf + 1;
-
-#ifdef _SUPERLU
-  dCreate_Dense_Matrix(&SMb, neq, 1, dW, neq,
-		       SLU_DN, SLU_D, SLU_GE);
-  dCreate_Dense_Matrix(&SMerr, neq, 1, err, neq,
-		       SLU_DN, SLU_D, SLU_GE);
-  zCreate_Dense_Matrix(&SMbz, neq, 1, delta_w_cx2, neq,
-		       SLU_DN, SLU_Z, SLU_GE);
-#endif
-
 
   error_norm = norm_inf;
 
@@ -205,15 +162,56 @@ int evolver_radau5(
     }
   }
 
-  /*Initialize the jacobian:*/
-  lasagna_call(initialize_jacobian(&jac,neq,error_message),
-	       error_message,error_message);
+  /** Initialise linalg and multi matrices: */
+    /** Initialise MultiMatrix J, A and the linear method: */
+  if (options->use_sparse == _TRUE_){
+    printf("Use Sparse\n");
+    Ai=options->Ai; Ap=options->Ap;
+    nnz = Ap[neq];
 
-  /*Initialise extra storage for the complex linear algebra:*/
-  initialize_jacobian_plus(&jac, &jac_plus, neq, error_message);
+    lasagna_alloc(Jval, sizeof(double)*nnz, error_message);
+    lasagna_alloc(Aval, sizeof(double)*nnz, error_message);
+    lasagna_alloc(Zval, sizeof(double complex)*nnz, error_message);
+    lasagna_call(CreateMatrix_SCC(&(J),L_DBL,neq, neq, nnz, Ai, Ap, Jval, error_message),
+		 error_message, error_message);
+    lasagna_call(CreateMatrix_SCC(&(A),L_DBL,neq, neq, nnz, Ai, Ap, Aval, error_message),
+		 error_message, error_message);
+    lasagna_call(CreateMatrix_SCC(&(Z),L_DBL_CX,neq, neq, nnz, Ai, Ap, Zval, error_message),
+		 error_message, error_message);
+  }
+  else{
+    printf("Use dense\n");
+    lasagna_alloc(Jval, sizeof(double)*(neq*neq+1), error_message);
+    lasagna_alloc(Aval, sizeof(double)*(neq*neq+1), error_message);
+    lasagna_alloc(Zval, sizeof(double complex)*(neq*neq+1), error_message);
+    lasagna_call(CreateMatrix_DNR(&(J),L_DBL,neq, neq, Jval, error_message),
+		 error_message, error_message);
+    lasagna_call(CreateMatrix_DNR(&(A),L_DBL,neq, neq, Aval, error_message),
+		 error_message, error_message);
+    lasagna_call(CreateMatrix_DNR(&(Z),L_DBL_CX,neq, neq, Zval, error_message),
+		 error_message, error_message);
+  }
+  lasagna_call(linalg_initialise(&A, options, &linalg_workspace_A,error_message),
+	       error_message, error_message);
+  lasagna_call(linalg_initialise(&Z, options, &linalg_workspace_Z,error_message),
+	       error_message, error_message);
+
+  lasagna_call(CreateMatrix_DNR(&(RHS), L_DBL, 1, neq, rhs_buf, error_message),
+	       error_message, error_message);
+  lasagna_call(CreateMatrix_DNR(&(DW), L_DBL, 1, neq, dW_buf, error_message),
+	       error_message, error_message);
+  lasagna_call(CreateMatrix_DNR(&(DIFF), L_DBL, 1, neq, diff_buf, error_message),
+	       error_message, error_message);
+  lasagna_call(CreateMatrix_DNR(&(ERR), L_DBL, 1, neq, err_buf, error_message),
+	       error_message, error_message);
+  lasagna_call(CreateMatrix_DNR(&(RHS_CX), L_DBL_CX, 1, neq, rhs_cx_buf, error_message),
+	       error_message, error_message);
+  lasagna_call(CreateMatrix_DNR(&(DW_CX), L_DBL_CX, 1, neq, delta_w_cx_buf, error_message),
+	       error_message, error_message);
+
   
   /* Initialize workspace for numjac: */
-  lasagna_call(initialize_numjac_workspace(&nj_ws,neq,error_message),
+  lasagna_call(initialize_numjac_workspace(&J, &nj_ws,error_message),
 	       error_message,error_message);
 
   t = t_ini;
@@ -248,15 +246,13 @@ int evolver_radau5(
 	     error_message);
   stepstat[2] += 1;
 
-  /*I assume that a full jacobi matrix is always calculated in the beginning...*/
-  
   nfenj=0;
   lasagna_call(numjac((*derivs),
 		      t,
 		      y0-1,
 		      f0-1,
-		      &jac,
-		      &nj_ws,
+		      &J,
+		      nj_ws,
 		      abstol,
 		      neq,
 		      &nfenj,
@@ -267,104 +263,38 @@ int evolver_radau5(
   stepstat[3] += 1;
   stepstat[2] += nfenj;
   J_current = _TRUE_;
-  for(i=0; i<neq; i++){
-    dfdt[i]=0.0;
-    for(j=0; j<neq; j++){
-      dfdt[i] += ((jac.dfdy[i+1][j+1])*f0[j]+
-		  (ftmp[i] - f0[i]) / tdel);
+  new_jacobian = _TRUE_;
+
+  switch(J.Stype){
+  case(L_DNR):
+    StoreDNR = (DNRformat *) J.Store;
+    Matrix = (double **) StoreDNR->Matrix;
+    for(i=0; i<neq; i++){
+      dfdt[i]=0.0;
+      for(j=0; j<neq; j++){
+	dfdt[i] += ((Matrix[i+1][j+1])*f0[j]+
+		    (ftmp[i] - f0[i]) / tdel);
+      }
     }
+    rh = error_norm(y0, dfdt, threshold, neq);
+    rh = 1.25*sqrt(0.5*rh/rtol);
+  
+    absh = fabs(t_final-t_ini);
+    if (absh * rh > 1.0) 
+      absh = 1.0 / rh;
+    absh = max(absh, abshmin);
+  
+    h = tdir * absh;
+    break;
   }
-  rh = error_norm(y0, dfdt, threshold, neq);
-  rh = 1.25*sqrt(0.5*rh/rtol);
-  
-  absh = fabs(t_final-t_ini);
-  if (absh * rh > 1.0) 
-    absh = 1.0 / rh;
-  absh = max(absh, abshmin);
-  
-  h = tdir * absh;
-  
    /* Done calculating initial step
      Get ready to do the loop:*/
-  /** If we have a pattern, we apply it here and do one 
-      call to numjac with the correct pattern: */
-  if ((Ap!=NULL)&&(Ai!=NULL)){
-    for (i=0; i<=neq; i++){
-      jac.spJ->Ap[i] = Ap[i];
-    }
-    for (i=0; i<Ap[neq]; i++){
-      jac.spJ->Ai[i] = Ai[i];
-    }
-    jac.pattern_supplied = _TRUE_;
-    jac.lu_pack = sparse;
-    lasagna_call(numjac((*derivs),
-			t,
-			y0-1,
-			f0-1,
-			&jac,
-			&nj_ws,
-			abstol,
-			neq,
-			&nfenj,
-			parameters_and_workspace_for_derivs,
-			error_message),
-		 error_message,
-		 error_message);
-    stepstat[3] += 1;
-    stepstat[2] += nfenj;
-    J_current = _TRUE_;
-#ifdef _SUPERLU
-      nnz = jac.spJ->Ap[neq];
-      Alen = colamd_recommended (nnz, neq, neq);
-      Aw=malloc(sizeof(int)*Alen);
-      for (j=0; j<nnz; j++)
-	Aw[j] = jac.spJ->Ai[j];
-      for (j=0; j<=neq; j++)
-	jac.Numerical->q[j] = jac.spJ->Ap[j];
-      if (colamd (neq, neq, Alen, Aw, jac.Numerical->q, NULL) != TRUE)
-	printf("colamd failed\n");  
-      //Create supermatrices:
-      //Note that the numerical values of A need not be available at this moment
-      dCreate_CompCol_Matrix(&(jac.A),
-			     neq, neq, nnz,
-			     jac.spJ->Ax,
-			     jac.spJ->Ai,
-			     jac.spJ->Ap,
-			     SLU_NC,SLU_D,SLU_GE);
-
-      zCreate_CompCol_Matrix(&(jac_plus.A),
-			     neq,neq,nnz,
-			     jac_plus.Axz,
-			     jac.spJ->Ai,
-			     jac.spJ->Ap,
-			     SLU_NC,SLU_Z,SLU_GE);
-      
-      StatAlloc(jac.A.ncol, _CORES_, panel_size, relax, &(jac.Gstat));
-      StatInit(jac.A.ncol, _CORES_, &(jac.Gstat));
-
-      StatAlloc(jac_plus.A.ncol, _CORES_, panel_size, relax, &(jac_plus.Gstat));
-      StatInit(jac_plus.A.ncol, _CORES_, &(jac_plus.Gstat));
-
-  
-      pdgstrf_init(_CORES_, fact, trans, refact, panel_size, relax,
-		   diag_pivot_thresh, usepr, drop_tol, 
-		   jac.Numerical->q, jac.Numerical->p,
-		   NULL, 0, &jac.A, &jac.AC, &jac.superlumt_options, 
-		   &jac.Gstat);
-  
-      pzgstrf_init(_CORES_, fact, trans, refact, panel_size, relax,
-		   diag_pivot_thresh, usepr, drop_tol, 
-		   jac_plus.Numerical_cx->q, jac_plus.Numerical_cx->p,
-		   NULL, 0, &jac_plus.A, &jac_plus.AC, 
-		   &jac_plus.superlumt_options, &jac_plus.Gstat);
-#else
-    calc_C(&jac);
-    /* Calculate the optimal ordering: */
-    sp_amd(jac.Cp, jac.Ci, neq, jac.cnzmax,
-	   jac.Numerical->q,jac.Numerical->wamd);
-#endif
-  }
-  new_linearisation_radau5(&jac, &jac_plus, h, neq, error_message);  
+  update_linear_system_radau5(&J, &A, &Z, h);
+  lasagna_call(linalg_factorise(linalg_workspace_A, new_jacobian, error_message),
+	       error_message, error_message);
+  lasagna_call(linalg_factorise(linalg_workspace_Z, new_jacobian, error_message),
+	       error_message, error_message);
+  new_jacobian = _FALSE_;
   stepstat[4] +=1;
 
   //Main loop:
@@ -433,55 +363,19 @@ int evolver_radau5(
 	transform_C_tensor_I(Tinv, 3, Fi, rhs, NULL, neq);
 	for (i=0; i<neq; i++){
 	  rhs[i] -= gamma*W[i];
-#ifdef _SUPERLU
-	  rhs_cx2[i].r = rhs[neq+i]-alpha*W[neq+i]+beta*W[2*neq+i];
-	  rhs_cx2[i].i = rhs[2*neq+i]-beta*W[neq+i]-alpha*W[2*neq+i];
-
 	  rhs_cx[i] = rhs[neq+i]-alpha*W[neq+i]+beta*W[2*neq+i]+
 	    I*(rhs[2*neq+i]-beta*W[neq+i]-alpha*W[2*neq+i]);
-#else
-	  rhs_cx[i] = rhs[neq+i]-alpha*W[neq+i]+beta*W[2*neq+i]+
-	    I*(rhs[2*neq+i]-beta*W[neq+i]-alpha*W[2*neq+i]);
-#endif
 	}
 	//Use backsubstitution to calculate delta W:
-	switch(jac.lu_pack){
-	case sparse:
-#ifdef _SUPERLU
-	  for (i=0; i<neq; i++){
-	    dW[i] = rhs[i];
-	    delta_w_cx2[i] = rhs_cx2[i];
-	  }	  
-	  dgstrs(trans, &(jac.L), &(jac.U), 
-		 jac.Numerical->p, jac.Numerical->q, 
-		 &SMb, &(jac.Gstat), &(jac.SLU_info));
-	  zgstrs(trans, &(jac_plus.L), &(jac_plus.U), 
-		 jac_plus.Numerical_cx->p, jac_plus.Numerical_cx->q, 
-		 &SMbz, &(jac_plus.Gstat), &(jac_plus.SLU_info));
-#else
-	  sp_lusolve(jac.Numerical, rhs, dW);
-	  sp_lusolve_cx(jac_plus.Numerical_cx, rhs_cx, delta_w_cx);
-#endif
-	  break;
-	case dense: default:
-	  for (i=0; i<neq; i++){
-	    dW[i] = rhs[i];
-	    delta_w_cx[i] = rhs_cx[i];
-	  }
-	  lubksb(jac.LU,neq,jac.luidx,dW-1);
-	  lubksb_cx(jac_plus.LU_cx,neq,jac_plus.luidx,delta_w_cx-1);
-	  break;
-	}
+	lasagna_call(linalg_solve(&RHS, &DW, linalg_workspace_A, error_message),
+		     error_message, error_message);
+	lasagna_call(linalg_solve(&RHS_CX, &DW_CX, linalg_workspace_Z, error_message),
+		     error_message, error_message);
 	stepstat[5]+=1;
 	//Form dW:
 	for (i=0; i<neq; i++){
-#ifdef _SUPERLU
-	  dW[neq+i] = delta_w_cx2[i].r;
-	  dW[2*neq+i] = delta_w_cx2[i].i;
-#else
 	  dW[neq+i] = creal(delta_w_cx[i]);
 	  dW[2*neq+i] = cimag(delta_w_cx[i]);
-#endif
 	}
 	//Test for convergence rate:
 	norm_dW = error_norm(W, dW, threshold, 3*neq);
@@ -536,8 +430,8 @@ int evolver_radau5(
 			      t,
 			      y0-1,
 			      f0-1,
-			      &jac,
-			      &nj_ws,
+			      &J,
+			      nj_ws,
 			      abstol,
 			      neq,
 			      &nfenj,
@@ -548,13 +442,19 @@ int evolver_radau5(
 	  stepstat[3] += 1;
 	  stepstat[2] += nfenj;
 	  J_current = _TRUE_;
+	  new_jacobian = _TRUE_;
 	}
 	//Reduce step size:
 	absh = abshnew;
 	h = tdir*absh;
 	//We need a new linearisation:
-	new_linearisation_radau5(&jac, &jac_plus, h, neq, error_message);
-        stepstat[4] +=1;
+	update_linear_system_radau5(&J, &A, &Z, h);
+	lasagna_call(linalg_factorise(linalg_workspace_A, new_jacobian, error_message),
+		     error_message, error_message);
+	lasagna_call(linalg_factorise(linalg_workspace_Z, new_jacobian, error_message),
+		     error_message, error_message);
+	new_jacobian = _FALSE_;
+	stepstat[4] +=1;
       }
       else{
 	//printf("Newton converged!\n");
@@ -567,27 +467,10 @@ int evolver_radau5(
 	}
 	got_ynew = _TRUE_;
 	// Solve for error err:
-	switch(jac.lu_pack){
-	case sparse:
-#ifdef _SUPERLU
-	  for (i=0; i<neq; i++)
-	    err[i] = diff[i];
-	  dgstrs(trans, &(jac.L), &(jac.U), 
-		 jac.Numerical->p, jac.Numerical->q, 
-		 &SMerr, &(jac.Gstat), &(jac.SLU_info));
-#else
-	  sp_lusolve(jac.Numerical, diff, err);
-#endif
-	  break;
-	case dense: default:
-	  for (i=0; i<neq; i++)
-	    err[i] = diff[i];
-	  lubksb(jac.LU,neq,jac.luidx,err-1);
-	  break;
-	}
+	lasagna_call(linalg_solve(&DIFF, &ERR, linalg_workspace_A, error_message),
+		     error_message, error_message);
 	//stepstat[5]+=1;
 	norm_err = error_norm(ynew, err, threshold, neq);
-	//printf("Norm_err: %g \n",norm_err);
 	if ((norm_err>=rtol)&&(last_failed == _TRUE_)){
 	  //Improve error estimate:
 	  for (i=0; i<neq; i++){
@@ -605,24 +488,8 @@ int evolver_radau5(
 	    diff[i] += (ftmp[i]-f0[i]);
 	  }
 	  //Solve for err again:
-	  switch(jac.lu_pack){
-	  case sparse:
-#ifdef _SUPERLU
-	    for (i=0; i<neq; i++)
-	      err[i] = diff[i];
-	    dgstrs(trans, &(jac.L), &(jac.U), 
-		   jac.Numerical->p, jac.Numerical->q, 
-		   &SMerr, &(jac.Gstat), &(jac.SLU_info));
-#else
-	    sp_lusolve(jac.Numerical, diff, err);
-#endif
-	    break;
-	  case dense: default:
-	    for (i=0; i<neq; i++)
-	      err[i] = diff[i];
-	    lubksb(jac.LU,neq,jac.luidx,err-1);
-	    break;
-	  }
+	  lasagna_call(linalg_solve(&DIFF, &ERR, linalg_workspace_A, error_message),
+		       error_message, error_message);
 	  //stepstat[5]+=1;
 	  norm_err = error_norm(ynew, err, threshold, neq);
 	}
@@ -648,8 +515,8 @@ int evolver_radau5(
 			      t,
 			      y0-1,
 			      f0-1,
-			      &jac,
-			      &nj_ws,
+			      &J,
+			      nj_ws,
 			      abstol,
 			      neq,
 			      &nfenj,
@@ -660,8 +527,14 @@ int evolver_radau5(
 	  stepstat[3] += 1;
 	  stepstat[2] += nfenj;
 	  J_current = _TRUE_;
+	  new_jacobian = _TRUE_;
       }
-      new_linearisation_radau5(&jac, &jac_plus, h, neq, error_message);
+      update_linear_system_radau5(&J, &A, &Z, h);
+      lasagna_call(linalg_factorise(linalg_workspace_A, new_jacobian, error_message),
+		   error_message, error_message);
+      lasagna_call(linalg_factorise(linalg_workspace_Z, new_jacobian, error_message),
+		   error_message, error_message);
+      new_jacobian = _FALSE_;
       stepstat[4] +=1;
     }
     else{  
@@ -764,8 +637,8 @@ int evolver_radau5(
 			    t,
 			    y0-1,
 			    f0-1,
-			    &jac,
-			    &nj_ws,
+			    &J,
+			    nj_ws,
 			    abstol,
 			    neq,
 			    &nfenj,
@@ -776,6 +649,7 @@ int evolver_radau5(
 	stepstat[3] += 1;
 	stepstat[2] += nfenj;
 	J_current = _TRUE_;
+	new_jacobian = _TRUE_;
       }
       if (abshnew>fabs(t_final-t)){
 	abshnew = fabs(t_final-t);
@@ -785,8 +659,13 @@ int evolver_radau5(
 	//Change step size and do a new linearisation:
 	absh = abshnew;
 	h = tdir*absh;
-	new_linearisation_radau5(&jac, &jac_plus, h, neq, error_message);
-        stepstat[4] +=1;
+	update_linear_system_radau5(&J, &A, &Z, h);
+	lasagna_call(linalg_factorise(linalg_workspace_A, new_jacobian, error_message),
+		     error_message, error_message);
+	lasagna_call(linalg_factorise(linalg_workspace_Z, new_jacobian, error_message),
+		     error_message, error_message);
+	new_jacobian = _FALSE_;
+	stepstat[4] +=1;	
       }
     }
     /* Perhaps use stop function: */
@@ -806,9 +685,15 @@ int evolver_radau5(
 	 stepstat[2],stepstat[3],stepstat[4],stepstat[5]);
 	
   /** Deallocate memory */
-  uninitialize_jacobian_plus(&jac_plus);
-  uninitialize_jacobian(&jac);
   uninitialize_numjac_workspace(&nj_ws);
+  DestroyMultiMatrix(&J);
+  DestroyMultiMatrix(&A);
+  DestroyMultiMatrix(&Z);
+  lasagna_call(linalg_finalise(linalg_workspace_A,error_message),error_message,error_message);
+  lasagna_call(linalg_finalise(linalg_workspace_Z,error_message),error_message,error_message);
+  free(Jval);
+  free(Aval);
+  free(Zval);
 
   free(W);
   free(dW_buf);
@@ -817,7 +702,7 @@ int evolver_radau5(
   free(Zlast);
   free(rhs_buf);
   free(err_buf);
-  free(diff);
+  free(diff_buf);
   free(xtemp);
   free(ytemp);
   free(ynew);
@@ -826,7 +711,7 @@ int evolver_radau5(
   free(ftmp);
   free(dfdt);
   free(delta_w);
-  free(rhs_cx);
+  free(rhs_cx_buf);
   free(delta_w_cx_buf);
 
 
@@ -851,16 +736,12 @@ int initialize_jacobian_plus(struct jacobian *jac,
 	
   lasagna_alloc(jac_plus->luidx,sizeof(int)*neqp1,error_message);
 
-  switch(jac->lu_pack){
-  case sparse:
-#ifdef _SUPERLU
-    jac_plus->Axz = malloc(sizeof(doublecomplex)*jac->max_nonzero);
-#endif
+  if (jac->use_sparse){
     lasagna_call(sp_num_alloc_cx(&jac_plus->Numerical_cx, neq,error_message),
 		 error_message,error_message);
 		
     lasagna_call(sp_mat_alloc_cx(&jac_plus->spJ_cx, neq, neq, jac->max_nonzero,
-				 error_message),error_message,error_message);
+			      error_message),error_message,error_message);
 
     /** Immediately free spJ_cx->Ai, spJ_cx->Ap and Numerical_cx->q, 
 	and set pointers to the corresponding locations in jac:
@@ -872,10 +753,9 @@ int initialize_jacobian_plus(struct jacobian *jac,
     jac_plus->spJ_cx->Ap = jac->spJ->Ap;
     jac_plus->Numerical_cx->q = jac->Numerical->q;
     jac_plus->sparse_stuff_initialised = _TRUE_;
-    break;
-  case dense: default:
+  }
+  else{
     jac_plus->sparse_stuff_initialised = _FALSE_;
-    break;
   }
   return _SUCCESS_;
 }
@@ -897,6 +777,71 @@ int uninitialize_jacobian_plus(struct jacobian_plus *jac_plus){
   return _SUCCESS_;
 }
 
+int update_linear_system_radau5(MultiMatrix *J,
+				MultiMatrix *A,
+				MultiMatrix *Z,
+				double hnew){
+
+  int neq=J->ncol;
+  double gamma_hat = 3.0-pow(3.0,1.0/3.0)+pow(3.0,2.0/3.0);
+  double alpha_hat = 0.5*(6.0+pow(3.0,1.0/3.0)-pow(3.0,2.0/3.0));
+  double beta_hat = 0.5*pow(3.0,1.0/6.0)*(3.0+pow(3.0,2.0/3.0));
+  double gamma = gamma_hat/hnew;
+  double complex alpha_ibeta = alpha_hat/hnew+I*(beta_hat/hnew);
+
+  double luparity, *Ax, *Jx;
+  double complex *Az;
+  int i,j,*Ap,*Ai,funcreturn;
+
+  SCCformat *JStoreSCC,*AStoreSCC,*ZStoreSCC;
+  DNRformat *JStoreDNR,*AStoreDNR,*ZStoreDNR;
+  double **Jmat, **Amat;
+  double complex **Zmat;
+  switch(J->Stype){
+  case(L_SCC):
+    JStoreSCC = J->Store; AStoreSCC = A->Store;
+    Ap = AStoreSCC->Ap; Ai = AStoreSCC->Ai; 
+    Ax = AStoreSCC->Ax; Jx = JStoreSCC->Ax;
+    ZStoreSCC = Z->Store;
+    Az = ZStoreSCC->Ax;
+    /* Construct jac->spJ->Ax from jac->xjac, the jacobian:*/
+    for(j=0;j<neq;j++){
+      for(i=Ap[j];i<Ap[j+1];i++){
+	if(Ai[i]==j){
+	  /* I'm at the diagonal */
+	  Ax[i] = gamma-Jx[i];
+	  Az[i] = alpha_ibeta-Jx[i];
+	}
+	else{
+	  Ax[i] = -Jx[i];
+	  Az[i] = -Jx[i];
+	}
+      }
+    }
+    break;
+  case (L_DNR):
+    JStoreDNR = J->Store; AStoreDNR = A->Store;
+    Jmat = (double **) JStoreDNR->Matrix;
+    Amat = (double **) AStoreDNR->Matrix;
+    ZStoreDNR = Z->Store;    
+    Zmat = (double complex **) ZStoreDNR->Matrix;
+    /* Normal calculation: */
+    for(i=1;i<=neq;i++){
+      for(j=1;j<=neq;j++){
+	Amat[i][j] = -Jmat[i][j];
+	Zmat[i][j] = -Jmat[i][j];
+	if(i==j){
+	  Amat[i][j] +=gamma;
+	  Zmat[i][j] +=alpha_ibeta;
+	}
+      }
+    }
+    break;
+  }
+  return _SUCCESS_;
+}
+
+
 
 int new_linearisation_radau5(struct jacobian *jac, 
 			     struct jacobian_plus *jac_plus,
@@ -912,89 +857,8 @@ int new_linearisation_radau5(struct jacobian *jac,
 
   double luparity, *Ax;
   double complex *Az;
-#ifdef _SUPERLU
-  double alpha = alpha_hat/hnew;
-  double beta = beta_hat/hnew;
-  doublecomplex *Axz;
-  yes_no_t refact;
-  flops_t  *ops, flopcnt;
-  double *utime;
-#endif
   int i,j,*Ap,*Ai,funcreturn;
-  switch(jac->lu_pack){
-  case sparse:
-#ifdef _SUPERLU
-    Ap = jac->spJ->Ap; Ai = jac->spJ->Ai; Ax = jac->spJ->Ax;
-    Axz = jac_plus->Axz;
-    /* Construct jac->spJ->Ax from jac->xjac, the jacobian:*/
-    for(j=0;j<neq;j++){
-      for(i=Ap[j];i<Ap[j+1];i++){
-	if(Ai[i]==j){
-	  /* I'm at the diagonal */
-	  Ax[i] = gamma-jac->xjac[i];
-	  Axz[i].r = alpha -jac->xjac[i];
-	  Axz[i].i = beta;
-	}
-	else{
-	  Ax[i] = -jac->xjac[i];
-	  Axz[i].r = -jac->xjac[i];
-	  Axz[i].i = 0.0;
-	}
-      }
-    }
-    /* Matrix constructed... */
-    if (jac->pattern_supplied == _TRUE_){
-      //      if (jac->refactor_count%jac->refactor_max == 0){
-      if (jac->new_jacobian == _TRUE_){
-	jac->new_jacobian = _FALSE_;
-      }
-      else{
-	//	refact = YES;
-      }
-      
-      pdgstrf(&(jac->superlumt_options), 
-	      &(jac->AC), 
-	      jac->Numerical->p, 
-	      &(jac->L), 
-	      &(jac->U), 
-	      &(jac->Gstat), 
-	      &(jac->SLU_info));
-      utime = jac->Gstat.utime;
-      ops = jac->Gstat.ops;
-      flopcnt = 0;
-      for (i = 0; i < _CORES_; ++i) flopcnt += jac->Gstat.procstat[i].fcops;
-      ops[FACT] = flopcnt;
-
-      /**
-	 printf("nprocs = %d, flops %e, Mflops %.2f\n",
-	 _CORES_, flopcnt, flopcnt/utime[FACT]*1e-6);
-	 fflush(stdout);
-      */
-      pzgstrf(&(jac_plus->superlumt_options), 
-	      &(jac_plus->AC), 
-	      jac_plus->Numerical_cx->p, 
-	      &(jac_plus->L), 
-	      &(jac_plus->U), 
-	      &(jac_plus->Gstat), 
-	      &(jac_plus->SLU_info));
-      utime = jac_plus->Gstat.utime;
-      ops = jac_plus->Gstat.ops;      
-      flopcnt = 0;
-      for (i = 0; i < _CORES_; ++i) flopcnt += jac->Gstat.procstat[i].fcops;
-      ops[FACT] = flopcnt;
-      
-      /**
-      printf("nprocs = %d, flops %e, Mflops %.2f\n",
-	     _CORES_, flopcnt, flopcnt/utime[FACT]*1e-6);
-      fflush(stdout);
-      */
-
-      jac->superlumt_options.refact=YES;
-      jac->superlumt_options.fact=FACTORED;
-      jac_plus->superlumt_options.refact=YES;
-      jac_plus->superlumt_options.fact=FACTORED;
-    }
-#else
+  if(jac->use_sparse==1){
     Ap = jac->spJ->Ap; Ai = jac->spJ->Ai; Ax = jac->spJ->Ax;
     Az = jac_plus->spJ_cx->Ax;
     /* Construct jac->spJ->Ax from jac->xjac, the jacobian:*/
@@ -1069,9 +933,8 @@ int new_linearisation_radau5(struct jacobian *jac,
 	sp_refactor_cx(jac_plus->Numerical_cx, jac_plus->spJ_cx);
       }
     }
-#endif
-    break;
-  case dense: default:
+  }
+  else{
     /* Normal calculation: */
     for(i=1;i<=neq;i++){
       for(j=1;j<=neq;j++){
@@ -1090,7 +953,6 @@ int new_linearisation_radau5(struct jacobian *jac,
     funcreturn = ludcmp_cx(jac_plus->LU_cx,neq,jac_plus->luidx,&luparity,jac->LUw);
     lasagna_test(funcreturn == _FAILURE_,error_message,
 	       "Failure in ludcmp. Possibly singular matrix!");
-    break;
   }
   return _SUCCESS_;
 }
@@ -1220,75 +1082,3 @@ double norm_L2(double *y,
   return sqrt(sum/((double) neq));
 }
 
-
-
-
-int lubksb_cx(double complex **a, int n, int *indx, double complex b[]){
-  int i,ii=0,ip,j;
-  double complex sum;
-  for (i=1;i<=n;i++) {
-    ip=indx[i];
-    if((ip<1)||(ip>n)) printf("WTFWTFWTF!!! i=%d, n=%d.\n",ip,n);
-    sum=b[ip];
-    b[ip]=b[i];
-    if (ii) for (j=ii;j<=i-1;j++) sum -= a[i][j]*b[j];
-    else if (cabs(sum)!=0.0) ii=i;
-    b[i]=sum;
-  }
-  for (i=n;i>=1;i--) {
-    sum=b[i];
-    for (j=i+1;j<=n;j++) sum -= a[i][j]*b[j];
-    b[i]=sum/a[i][i];
-  }
-  return _SUCCESS_;
-}
-
-
-int ludcmp_cx(double complex **a, int n, int *indx, double *d, double *vv){
-  int i,imax=0,j,k;
-  double big,dum,temp;
-  double complex sum,dum2;
-  *d=1.0;
-  //Loop over rows to find largest element of each column
-  for (i=1;i<=n;i++) {
-    big=0.0;
-    for (j=1;j<=n;j++) {
-      if ((temp=cabs(a[i][j])) > big) big=temp;
-    }
-    if (big == 0.0) return _FAILURE_;
-    vv[i]=1.0/big;
-  }
-  for (j=1;j<=n;j++) {
-    for (i=1;i<j;i++) {
-      sum=a[i][j];
-      for (k=1;k<i;k++) sum -= a[i][k]*a[k][j];
-      a[i][j]=sum;
-    }
-    big=0.0;
-    for (i=j;i<=n;i++) {
-      sum=a[i][j];
-      for (k=1;k<j;k++) sum -= a[i][k]*a[k][j];
-      a[i][j]=sum;
-      if ( (dum=vv[i]*cabs(sum)) >= big) {
-	big=dum;
-	imax=i;
-      }
-    }
-    if (j != imax) {
-      for (k=1;k<=n;k++) {
-	dum2=a[imax][k];
-	a[imax][k]=a[j][k];
-	a[j][k]=dum2;
-      }
-      *d = -(*d);
-      vv[imax]=vv[j];
-    }
-    indx[j]=imax;
-    if (cabs(a[j][j]) == 0.0) a[j][j]=TINY;
-    if (j != n) {
-      dum2=1.0/(a[j][j]);
-      for (i=j+1;i<=n;i++) a[i][j] *= dum2;
-    }
-  }
-  return _SUCCESS_;
-}

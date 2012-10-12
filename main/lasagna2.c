@@ -13,6 +13,7 @@ int main(int argc, char **argv) {
   int func_return;
   clock_t start, end;
   double cpu_time_used;
+  EvolverOptions options;
 
   extern int evolver_radau5();
   extern int evolver_ndf15(); 	
@@ -50,24 +51,34 @@ int main(int argc, char **argv) {
   
   qke_init_output(&qke_struct);
 
+  //Handle options:
+  DefaultEvolverOptions(&options);
+  options.used_in_output=interp_idx;
+  options.RelTol = qke_struct.rtol;
+  options.AbsTol = qke_struct.abstol;
+  options.t_vec = qke_struct.Tvec; 
+  options.tres = qke_struct.Tres;
+  options.Ap = qke_struct.Ap;
+  options.Ai = qke_struct.Ai;
+  options.output = qke_store_output;
+  //options.print_variables = qke_print_L;
+  //options.stop_function = qke_stop_at_L;
+  options.use_sparse = _TRUE_;
+  options.linalg_initialise = &(linalg_initialise_sparse);
+  options.linalg_finalise = &(linalg_finalise_sparse);
+  options.linalg_factorise = &(linalg_factorise_sparse);
+  options.linalg_solve = &(linalg_solve_sparse);
+
+
   printf("is_electron = %d. _TRUE_=%d\n",qke_struct.is_electron,_TRUE_);
   start = clock();  
-  func_return = generic_evolver(qke_derivs_fixed_grid,
+  func_return = generic_evolver(qke_derivs,
+				&qke_struct,
 				qke_struct.T_initial,
 				qke_struct.T_final,
 				y_inout, 
-				interp_idx,
 				qke_struct.neq, 
-				&qke_struct,
-				qke_struct.rtol, 
-				qke_struct.abstol, 
-				qke_struct.Tvec, 
-				qke_struct.Tres,
-				qke_struct.Ap,
-				qke_struct.Ai,
-				qke_store_output,
-				NULL,//qke_print_variables,
-				NULL,//qke_stop_at_L,
+				&(options),
 				error_message);
   end = clock();
   cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;

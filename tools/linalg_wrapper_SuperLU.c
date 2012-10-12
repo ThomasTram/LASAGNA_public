@@ -181,6 +181,7 @@ int linalg_finalise_SuperLU(void *linalg_workspace,
 
 
 int linalg_factorise_SuperLU(void *linalg_workspace,
+			     int has_changed_significantly,
 			     ErrorMsg error_message){
   SLU_structure *ws= linalg_workspace;
   /** The actual data in ws->A is the same as in the MultiMatrix

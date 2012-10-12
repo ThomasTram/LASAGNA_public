@@ -1,3 +1,6 @@
+#ifndef __WRAPPER_SPARSE /* allow multiple inclusions */
+#define __WRAPPER_SPARSE
+
 #include "common.h"
 #include <complex.h>
 #include "multimatrix.h"
@@ -25,6 +28,7 @@ extern "C" {
   int linalg_finalise_dense_NR(void *linalg_workspace,
 			       ErrorMsg error_message);
   int linalg_factorise_dense_NR(void *linalg_workspace,
+				int has_changed_significantly,
 				ErrorMsg error_message);
   int linalg_solve_dense_NR(MultiMatrix *B, 
 			    MultiMatrix *X,
@@ -38,4 +42,6 @@ extern "C" {
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif

@@ -25,12 +25,12 @@ typedef struct {
 } MultiMatrix;
 
 typedef struct _EvolverOptions{
+  int tres;             /**If t_vec!=NULL, length of t_vec.
+			   If t_vec==NULL, refinement factor.*/
   double AbsTol;
   double RelTol;
   int * used_in_output; /**Which indices are required in output? */
   double * t_vec;       /**Output at specified points */
-  int tres;             /**If t_vec!=NULL, length of t_vec.
-			   If t_vec==NULL, refinement factor.*/
   int Stats[10]; /** Evolver statistics */
   int Flags[10]; /** Can for instance be used for communication between evolver
 		     and linalg wrapper, or different instances of the wrapper. */
@@ -40,7 +40,7 @@ typedef struct _EvolverOptions{
   /** Pointers to the 4 linear algebra wrapper functions: */
   int (*linalg_initialise)(MultiMatrix *, struct _EvolverOptions *, void **, ErrorMsg);
   int (*linalg_finalise)(void *, ErrorMsg);
-  int (*linalg_factorise)(void *, ErrorMsg);
+  int (*linalg_factorise)(void *, int, ErrorMsg);
   int (*linalg_solve)(MultiMatrix *, MultiMatrix *, void *, ErrorMsg);
   /** Pointers to the evolver utility functions:*/
   int (*output)(double t, double *y, double *dy, int i, void *p, ErrorMsg err);

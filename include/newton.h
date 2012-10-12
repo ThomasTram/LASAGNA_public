@@ -1,7 +1,7 @@
 #ifndef __NWT__
 #define __NWT__
 #include "common.h"
-#include "evolver_ndf15.h"
+#include "linalg_wrapper_dense_NR.h"
 /**************************************************************/
 
 /**

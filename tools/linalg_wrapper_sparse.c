@@ -145,6 +145,7 @@ int linalg_finalise_sparse(void *linalg_workspace,
 }
 
 int linalg_factorise_sparse(void *linalg_workspace,
+			    int has_changed_significantly,
 			    ErrorMsg error_message){
   SP_structure *ws= linalg_workspace;
   int fr;
@@ -154,7 +155,8 @@ int linalg_factorise_sparse(void *linalg_workspace,
 
   switch(ws->Dtype){
   case (L_DBL):
-    if ((ws->Factorised==_TRUE_)&&(ws->RefactorCount < ws->RefactorMax)){
+    //    if ((ws->Factorised==_TRUE_)&&(ws->RefactorCount < ws->RefactorMax)){
+    if ((ws->Factorised==_TRUE_)&&(has_changed_significantly==_FALSE_)){
       fr = sp_refactor((sp_num *) ws->SparseNumerical, 
 		       (sp_mat *) ws->A);
       ws->RefactorCount++;

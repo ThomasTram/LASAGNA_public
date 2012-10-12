@@ -1,23 +1,24 @@
 #include "evolver_rk45.h"
-int evolver_rk45(
-  int (*derivs)(double x,double * y,double * dy,
-		void * parameters_and_workspace, ErrorMsg error_message),
-    double x_ini,
-    double x_final,
-    double * y_inout, 
-    int * used_in_output,
-    int neq, 
-    void * ppaw,
-    double rtol, 
-    double minimum_variation, 
-    double * t_vec, 
-    int t_res,
-    int (*output)(double x,double y[],double dy[],int index_x,void * parameters_and_workspace,
-		  ErrorMsg error_message),
-    int (*print_variables)(double x, double y[], double dy[], void *ppaw,
-			   ErrorMsg error_message),
-  ErrorMsg error_message){
-
+int evolver_rk45(int (*derivs)(double x,double * y,double * dy,
+			       void * parameters_and_workspace, ErrorMsg error_message),
+		 void * ppaw,
+		 double x_ini,
+		 double x_final,
+		 double * y_inout, 
+		 int neq, 
+		 EvolverOptions *options,
+		 ErrorMsg error_message){
+	
+  /** Handle options: */
+  int *interpidx, *stats, verbose, t_res; 
+  double abstol, rtol, *t_vec;
+  int (*output)(double t, double *y, double *dy, int i, void *p, ErrorMsg err);
+  int (*print_variables)(double t, double *y, double *dy, void *p, ErrorMsg err);
+  interpidx = options->used_in_output; stats = &(options->Stats[0]);
+  verbose = options->EvolverVerbose; t_res = options->tres; abstol = options->AbsTol; 
+  rtol = options->RelTol; t_vec = options->t_vec; 
+  output = options->output; print_variables=options->print_variables; 
+ 
   double *dy,*err,*ynew,*ytemp, *ki;
   double h,errmax,errtemp,hmin,hnew;
   double t;
@@ -30,8 +31,6 @@ int evolver_rk45(
   double threshold = 1e-6/rtol;
   int nofailed;
   double pow_grow=0.5;
-  int verbose=2;
-  int stats[3]={0,0,0};
   double rh,maxtmp,absh,hmax;
 
   dy = malloc(sizeof(double)*neq);
@@ -233,41 +232,30 @@ int evolver_rk45(
   return _SUCCESS_;
 }
 
-int evolver_rkdp45(
-		   int (*derivs)(double x,
+int evolver_rkdp45(int (*derivs)(double x,
 				 double * y,
 				 double * dy,
-				 void * parameters_and_workspace, 
+				 void * ppaw, 
 				 ErrorMsg error_message),
+		   void *ppaw,
 		   double t_ini,
 		   double t_final,
 		   double * y_inout, 
-		   int * used_in_output,
 		   int neq, 
-		   void * ppaw,
-		   double rtol, 
-		   double abstol, 
-		   double * t_vec, 
-		   int tres,
-		   int *ignore1,
-		   int *ignore2,
-		   int (*output)(double x,
-				 double y[],
-				 double dy[],
-				 int index_x,
-				 void * parameters_and_workspace,
-				 ErrorMsg error_message),
-		   int (*print_variables)(double x, 
-					  double y[], 
-					  double dy[], 
-					  void *ppaw,
-					  ErrorMsg error_message),
-		   int (*stop_function)(double x, 
-					double y[], 
-					double dy[], 
-					void *parameters_and_workspace,
-					ErrorMsg error_message),
+		   EvolverOptions *options,
 		   ErrorMsg error_message){
+	
+  /** Handle options: */
+  int *used_in_output, *stats, verbose, tres; 
+  double abstol, rtol, *t_vec;
+  int (*output)(double t, double *y, double *dy, int i, void *p, ErrorMsg err);
+  int (*print_variables)(double t, double *y, double *dy, void *p, ErrorMsg err);
+  int (*stop_function)(double t, double *y, double *dy, void *p, ErrorMsg err);
+  used_in_output = options->used_in_output; stats = &(options->Stats[0]);
+  verbose = options->EvolverVerbose; tres = options->tres; abstol = options->AbsTol; 
+  rtol = options->RelTol; t_vec = options->t_vec; 
+  output = options->output; print_variables=options->print_variables; 
+  stop_function = options->stop_function;
 
   double *dy,*err,*ynew,*ytemp, *ki;
   double h,absh,hmax,errmax,errtemp,hmin,hnew;
@@ -282,8 +270,6 @@ int evolver_rkdp45(
   double threshold = abstol/rtol;
   int nofailed;
   double pow_grow=0.2;
-  int verbose=2;
-  int stats[3]={0,0,0};
   double rh,maxtmp;
   //Interpolation variables:
   double i01,i02,i03;

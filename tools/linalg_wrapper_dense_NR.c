@@ -103,6 +103,7 @@ int linalg_finalise_dense_NR(void *linalg_workspace,
 
 
 int linalg_factorise_dense_NR(void *linalg_workspace,
+			      int has_changed_significantly,
 			      ErrorMsg error_message){
   DNR_structure *ws= linalg_workspace;
   DNRformat *StoreA=ws->A->Store;

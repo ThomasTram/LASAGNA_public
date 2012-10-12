@@ -116,6 +116,7 @@ int main(){
     PrintMultiMatrix(&B,"Right hand side B before factorisation.");
   
     funcreturn = linalg_factorise_dense_NR(linalg_workspace,
+					   _TRUE_;
 					   error_message);
     if (funcreturn==_FAILURE_){
       printf("Error: %s\n",error_message);
