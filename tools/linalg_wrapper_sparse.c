@@ -1,5 +1,4 @@
 #include "linalg_wrapper_sparse.h"
-#include "complex.h"
 
 
 /** Wrapper for linear algebra methods used by evolver_ndf15 and
@@ -55,6 +54,9 @@ int linalg_initialise_sparse(MultiMatrix *A,
   int *Cp, *Ci;
   int *perm_c, *wamd;
   int ncol, nrow;
+
+  printf("Linalg Wrapper: Sparse\n");
+
   ncol = A->ncol; nrow = A->nrow;
   //Test input:
   lasagna_test(A->ncol != A->nrow, 
@@ -170,7 +172,8 @@ int linalg_factorise_sparse(void *linalg_workspace,
     }
     break;
   case (L_DBL_CX):
-    if ((ws->Factorised==_TRUE_)&&(ws->RefactorCount < ws->RefactorMax)){
+    //    if ((ws->Factorised==_TRUE_)&&(ws->RefactorCount < ws->RefactorMax)){
+    if ((ws->Factorised==_TRUE_)&&(has_changed_significantly==_FALSE_)){
       fr = sp_refactor_cx((sp_num_cx *) ws->SparseNumerical, 
 			  (sp_mat_cx *) ws->A);
       ws->RefactorCount++;

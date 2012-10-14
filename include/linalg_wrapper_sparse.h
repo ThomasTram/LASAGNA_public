@@ -1,6 +1,8 @@
+#ifndef __WRAPPER_SPARSE__ /* allow multiple inclusions */
+#define __WRAPPER_SPARSE__
 #include "common.h"
 #include <complex.h>
-#include "multimatrix.h"
+#include "evolver_common.h"
 #include "sparse.h"
 
 typedef struct {
@@ -38,4 +40,6 @@ extern "C" {
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif

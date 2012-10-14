@@ -7,8 +7,8 @@ close all;
 mbin = 51;
 analytic_static = true;
 Ti_lowtemp = 6;%MeV
-%filename = 'output/dump.mat';
-filename = 'output/ref.mat';
+filename = 'output/dump.mat';
+%filename = 'output/ref.mat';
 %filename = 'dump_004_008.mat';
 
 load(filename)
@@ -106,6 +106,9 @@ Pz_bar_lastidx2 = Pz_bar_lastidx + cos(alpha_bar_grid(:,idx_Ti)).^2.*Pz_bar(:,id
 
 %Plot stuff
 scrsz = get(0,'ScreenSize');
+margin_lr = 0.05*scrsz(3);
+margin_ud = 0.05*scrsz(4);
+figsize = [margin_lr margin_ud scrsz(3)-2*margin_lr scrsz(4)-2*margin_ud];
 
 %Debug stuff:
 Py_static_mean = mean(Py_static_grid(:,1:last_idx),2);
@@ -113,7 +116,7 @@ Py_mean = mean(Py(:,1:last_idx),2);
 difPy = Py_mean-Py_static_mean;
 
 
-figure('OuterPosition',[1 scrsz(4)/10 scrsz(3) 0.9*scrsz(4)])
+figure('OuterPosition',figsize)
 subplot_rows = 2;
 subplot_cols = 3;
 nice_plot(subplot_rows,subplot_cols,1,T,Py_minus(1,:),last_idx,...
@@ -130,7 +133,7 @@ nice_plot(subplot_rows,subplot_cols,5,x_grid(:,idx),Ps_plus(:,idx)',Tres_vres(2)
 nice_plot(subplot_rows,subplot_cols,6,x_grid(:,idx),Ps_minus(:,idx)',Tres_vres(2),...
     'Title','Ps_{minus}','xdir','normal','xlabel','x = p/T');
 
-figure('OuterPosition',[1 scrsz(4)/10 scrsz(3) 0.9*scrsz(4)])
+figure('OuterPosition',figsize)
 %figure('OuterPosition',[1 scrsz(4) scrsz(3) scrsz(4)])
 subplot_rows = 2;
 subplot_cols = 4;
@@ -166,7 +169,7 @@ subplot(subplot_rows,subplot_cols,8);
 plot(v_grid(:,last_idx),x_grid(:,last_idx));
 title('x(v)');
 
-figure('OuterPosition',[1 scrsz(4)/10 scrsz(3) 0.9*scrsz(4)]);
+figure('OuterPosition',figsize);
 linecell = {'-','--','-.',':'};
 colorcell = {'k','b','b','b','b'};
 subplot(2,2,1)
@@ -242,7 +245,7 @@ subplot(2,2,4)
 plot(xvec,Vx_grid(:,last_idx),xvec,Vz_grid(:,last_idx),...
     xvec,Vz_bar_grid(:,last_idx))
 
-figure('OuterPosition',[1 scrsz(4)/10 scrsz(3) 0.9*scrsz(4)])
+figure('OuterPosition',figsize)
 %figure('OuterPosition',[1 scrsz(4) scrsz(3) scrsz(4)])
 subplot_rows = 2;
 subplot_cols = 3;

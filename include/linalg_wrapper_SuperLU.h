@@ -1,9 +1,13 @@
+#ifndef __WRAPPER_SUPERLU__ /* allow multiple inclusions */
+#define __WRAPPER_SUPERLU__
+
 #include "common.h"
 #include <complex.h>
+#include "evolver_common.h"
 typedef int int_t; /* default */
-#include "multimatrix.h"
 #include "supermatrix.h"
 #include "slu_mt_util.h"
+
 
 typedef struct {
   SuperMatrix A;
@@ -44,4 +48,8 @@ extern "C" {
 
 #ifdef __cplusplus
 }
+#endif
+
+
+
 #endif

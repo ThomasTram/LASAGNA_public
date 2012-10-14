@@ -51,8 +51,8 @@ int main(int argc, char **argv) {
   
   qke_init_output(&qke_struct);
 
-  //Handle options:
-  DefaultEvolverOptions(&options);
+//Handle options:
+  DefaultEvolverOptions(&options,qke_struct.LinearAlgebraWrapper);
   options.used_in_output=interp_idx;
   options.RelTol = qke_struct.rtol;
   options.AbsTol = qke_struct.abstol;
@@ -61,14 +61,11 @@ int main(int argc, char **argv) {
   options.Ap = qke_struct.Ap;
   options.Ai = qke_struct.Ai;
   options.output = qke_store_output;
-  //options.print_variables = qke_print_L;
-  //options.stop_function = qke_stop_at_L;
-  options.use_sparse = _TRUE_;
-  options.linalg_initialise = &(linalg_initialise_sparse);
-  options.linalg_finalise = &(linalg_finalise_sparse);
-  options.linalg_factorise = &(linalg_factorise_sparse);
-  options.linalg_solve = &(linalg_solve_sparse);
-
+  //  options.print_variables = qke_print_L;
+  //  options.stop_function = qke_stop_at_L;
+  options.EvolverVerbose=4;
+  options.EvolverVerbose=qke_struct.verbose;
+  options.Cores = qke_struct.nproc;
 
   printf("is_electron = %d. _TRUE_=%d\n",qke_struct.is_electron,_TRUE_);
   start = clock();  

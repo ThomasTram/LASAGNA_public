@@ -62,7 +62,7 @@ int linalg_initialise_SuperLU(MultiMatrix *A,
   void *work;
   int lwork;
 
-
+  printf("Linalg Wrapper: SuperLU. Number of cores: %d\n",options->Cores);
   ncol = A->ncol; nrow = A->nrow; Dtype = A->Dtype;
   //Test input:
   lasagna_test(A->ncol != A->nrow, 

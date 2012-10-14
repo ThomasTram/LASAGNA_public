@@ -154,29 +154,3 @@ int PrintMultiMatrix(MultiMatrix *A, char* name){
   return _SUCCESS_;
 }
 
-int DefaultEvolverOptions(EvolverOptions *opt){
-  int i;
-  opt->AbsTol=1e-6;
-  opt->RelTol=1e-3;  
-  opt->used_in_output=NULL;
-  opt->t_vec=NULL;
-  opt->tres=1;
-  opt->Cores=1;
-  opt->EvolverVerbose=1; 
-  opt->LinAlgVerbose=1;
-  opt->use_sparse = _FALSE_;
-  opt->Ap = NULL;
-  opt->Ai = NULL;
-  opt->linalg_initialise=NULL;
-  opt->linalg_finalise=NULL;
-  opt->linalg_factorise=NULL;
-  opt->linalg_solve=NULL;
-  opt->output=NULL;
-  opt->print_variables=NULL;
-  opt->stop_function=NULL;
-  for (i=0; i<10; i++){
-    opt->Stats[i]= 0;
-    opt->Flags[i]= 0;
-  }
-  return _SUCCESS_;
-}

@@ -1,4 +1,3 @@
-#include "common.h"
 #include "evolver_radau5.h"
 /**
    Statistics is saved in the stepstat[6] vector. The entries are:
@@ -685,12 +684,19 @@ int evolver_radau5(int (*derivs)(double x,double * y,double * dy,
 	 stepstat[2],stepstat[3],stepstat[4],stepstat[5]);
 	
   /** Deallocate memory */
-  uninitialize_numjac_workspace(&nj_ws);
+  uninitialize_numjac_workspace(nj_ws);
   DestroyMultiMatrix(&J);
   DestroyMultiMatrix(&A);
   DestroyMultiMatrix(&Z);
   lasagna_call(linalg_finalise(linalg_workspace_A,error_message),error_message,error_message);
   lasagna_call(linalg_finalise(linalg_workspace_Z,error_message),error_message,error_message);
+  DestroyMultiMatrix(&RHS_CX);
+  DestroyMultiMatrix(&RHS);
+  DestroyMultiMatrix(&DW_CX);
+  DestroyMultiMatrix(&DW);
+  DestroyMultiMatrix(&DIFF);
+  DestroyMultiMatrix(&ERR);
+
   free(Jval);
   free(Aval);
   free(Zval);
@@ -715,65 +721,6 @@ int evolver_radau5(int (*derivs)(double x,double * y,double * dy,
   free(delta_w_cx_buf);
 
 
-  return _SUCCESS_;
-}
-
-int initialize_jacobian_plus(struct jacobian *jac, 
-			     struct jacobian_plus *jac_plus,
-			     int neq,
-			     ErrorMsg error_message){
-  int i,neqp1 = neq+1;
-
-  lasagna_alloc(jac_plus->LU_cx,
-		sizeof(double complex*)*neqp1,
-		error_message); 
-  /* Allocate vector of pointers to rows of matrix.*/
-  lasagna_alloc(jac_plus->LU_cx[1],sizeof(double complex)*neqp1*neq,
-		error_message);
-  jac_plus->LU_cx[0] = NULL;
-  for(i=2;i<=neq;i++) 
-    jac_plus->LU_cx[i] = jac_plus->LU_cx[i-1]+neq; /* Set row pointers... */ 
-	
-  lasagna_alloc(jac_plus->luidx,sizeof(int)*neqp1,error_message);
-
-  if (jac->use_sparse){
-    lasagna_call(sp_num_alloc_cx(&jac_plus->Numerical_cx, neq,error_message),
-		 error_message,error_message);
-		
-    lasagna_call(sp_mat_alloc_cx(&jac_plus->spJ_cx, neq, neq, jac->max_nonzero,
-			      error_message),error_message,error_message);
-
-    /** Immediately free spJ_cx->Ai, spJ_cx->Ap and Numerical_cx->q, 
-	and set pointers to the corresponding locations in jac:
-    */
-    free(jac_plus->spJ_cx->Ai);
-    free(jac_plus->spJ_cx->Ap);
-    free(jac_plus->Numerical_cx->q);
-    jac_plus->spJ_cx->Ai = jac->spJ->Ai;
-    jac_plus->spJ_cx->Ap = jac->spJ->Ap;
-    jac_plus->Numerical_cx->q = jac->Numerical->q;
-    jac_plus->sparse_stuff_initialised = _TRUE_;
-  }
-  else{
-    jac_plus->sparse_stuff_initialised = _FALSE_;
-  }
-  return _SUCCESS_;
-}
-
-int uninitialize_jacobian_plus(struct jacobian_plus *jac_plus){
-  free(jac_plus->LU_cx[1]);
-  free(jac_plus->LU_cx);
-  free(jac_plus->luidx);
-  
-  if (jac_plus->sparse_stuff_initialised == _TRUE_){
-    //Free rest of spJ_cx manually:
-    free(jac_plus->spJ_cx->Ax);
-    free(jac_plus->spJ_cx);
-    //The column ordering is not allocated but is a copy of the pointer in
-    //jac, so we are not allowed to free it here:
-    jac_plus->Numerical_cx->q = NULL;
-    sp_num_free_cx(jac_plus->Numerical_cx);
-  }
   return _SUCCESS_;
 }
 
@@ -841,121 +788,6 @@ int update_linear_system_radau5(MultiMatrix *J,
   return _SUCCESS_;
 }
 
-
-
-int new_linearisation_radau5(struct jacobian *jac, 
-			     struct jacobian_plus *jac_plus,
-			     double hnew,
-			     int neq,
-			     ErrorMsg error_message){
-
-  double gamma_hat = 3.0-pow(3.0,1.0/3.0)+pow(3.0,2.0/3.0);
-  double alpha_hat = 0.5*(6.0+pow(3.0,1.0/3.0)-pow(3.0,2.0/3.0));
-  double beta_hat = 0.5*pow(3.0,1.0/6.0)*(3.0+pow(3.0,2.0/3.0));
-  double gamma = gamma_hat/hnew;
-  double complex alpha_ibeta = alpha_hat/hnew+I*(beta_hat/hnew);
-
-  double luparity, *Ax;
-  double complex *Az;
-  int i,j,*Ap,*Ai,funcreturn;
-  if(jac->use_sparse==1){
-    Ap = jac->spJ->Ap; Ai = jac->spJ->Ai; Ax = jac->spJ->Ax;
-    Az = jac_plus->spJ_cx->Ax;
-    /* Construct jac->spJ->Ax from jac->xjac, the jacobian:*/
-    for(j=0;j<neq;j++){
-      for(i=Ap[j];i<Ap[j+1];i++){
-	if(Ai[i]==j){
-	  /* I'm at the diagonal */
-	  Ax[i] = gamma-jac->xjac[i];
-	  Az[i] = alpha_ibeta-jac->xjac[i];
-	}
-	else{
-	  Ax[i] = -jac->xjac[i];
-	  Az[i] = -jac->xjac[i];
-	}
-      }
-    }
-    /* Matrix constructed... */
-    if (jac->pattern_supplied == _TRUE_){
-      //      if (jac->refactor_count%jac->refactor_max == 0){
-      if (jac->new_jacobian == _TRUE_){
-	//printf("Full calculation...\n");
-	//We should do a full LU decomposition again:
-	funcreturn = sp_ludcmp(jac->Numerical, jac->spJ, 1e-3);
-	lasagna_test(funcreturn == _FAILURE_,error_message,
-		     "Failure in sp_ludcmp. Possibly singular matrix!");
-	/** Column ordering in spJ_cx->Numerical is (should be) pointing 
-	    to column_ordering in spJ->Numerical.
-	    Same with Ai and Ap.
-	*/
-	funcreturn = sp_ludcmp_cx(jac_plus->Numerical_cx, jac_plus->spJ_cx, 1e-3);
-	lasagna_test(funcreturn == _FAILURE_,error_message,
-		     "Failure in sp_ludcmp_cx. Possibly singular matrix!");
-	jac->new_jacobian = _FALSE_;
-      }
-      else{
-	//printf("Refactorisation..\n");
-	sp_refactor(jac->Numerical, jac->spJ);
-	sp_refactor_cx(jac_plus->Numerical_cx, jac_plus->spJ_cx);
-      }
-      jac->refactor_count++;
-    }
-    else{
-      if((jac->new_jacobian==_TRUE_)&&(jac->repeated_pattern<1)){
-        /*I have a new pattern, and I have not done a LU decomposition 
-	  since the last jacobian calculation, so	I need to do a full 
-	  sparse LU-decomposition: */
-	/* Find the sparsity pattern C = J + J':*/
-	calc_C(jac);
-	/* Calculate the optimal ordering: */
-	sp_amd(jac->Cp, jac->Ci, neq, jac->cnzmax,
-	       jac->Numerical->q,jac->Numerical->wamd);
-	/* if the next line is uncomented, the code uses natural ordering instead of AMD ordering */
-	/*jac->Numerical->q = NULL;*/
-	funcreturn = sp_ludcmp(jac->Numerical, jac->spJ, 1e-3);
-	lasagna_test(funcreturn == _FAILURE_,error_message,
-		     "Failure in sp_ludcmp. Possibly singular matrix!");
-	/** Column ordering in spJ_cx->Numerical is (should be) pointing 
-	    to column_ordering in spJ->Numerical.
-	    Same with Ai and Ap.
-	*/
-	funcreturn = sp_ludcmp_cx(jac_plus->Numerical_cx, jac_plus->spJ_cx, 1e-3);
-	lasagna_test(funcreturn == _FAILURE_,error_message,
-		     "Failure in sp_ludcmp_cx. Possibly singular matrix!");
-
-	/**printf("Non-zero elements in real LU-decomposition: %d+%d. \nIn complex LU: %d+%d.\n The base matrix is [%d x %d]=%d\n",jac->Numerical->L->Ap[neq],jac->Numerical->U->Ap[neq],jac_plus->Numerical_cx->L->Ap[neq],jac_plus->Numerical_cx->U->Ap[neq],neq,neq,neq*neq);
-	 */
-	jac->new_jacobian = _FALSE_;
-      }
-      else{
-	/* I have a repeated pattern, so I can just refactor:*/
-	sp_refactor(jac->Numerical, jac->spJ);
-	sp_refactor_cx(jac_plus->Numerical_cx, jac_plus->spJ_cx);
-      }
-    }
-  }
-  else{
-    /* Normal calculation: */
-    for(i=1;i<=neq;i++){
-      for(j=1;j<=neq;j++){
-	jac->LU[i][j] = -jac->dfdy[i][j];
-	jac_plus->LU_cx[i][j] = -jac->dfdy[i][j];
-	if(i==j){
-	  jac->LU[i][j] +=gamma;
-	  jac_plus->LU_cx[i][j] +=alpha_ibeta;
-	}
-      }
-    }
-    /*Dense LU decomposition: */
-    funcreturn = ludcmp(jac->LU,neq,jac->luidx,&luparity,jac->LUw);
-    lasagna_test(funcreturn == _FAILURE_,error_message,
-	       "Failure in ludcmp. Possibly singular matrix!");
-    funcreturn = ludcmp_cx(jac_plus->LU_cx,neq,jac_plus->luidx,&luparity,jac->LUw);
-    lasagna_test(funcreturn == _FAILURE_,error_message,
-	       "Failure in ludcmp. Possibly singular matrix!");
-  }
-  return _SUCCESS_;
-}
 
 int transform_C_tensor_I(double *C, 
 			 int s,

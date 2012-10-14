@@ -1,6 +1,6 @@
 #include "linalg_wrapper_dense_NR.h"
 #include "complex.h"
-#define TINY 1e-50
+
 /** Wrapper for linear algebra methods used by evolver_ndf15 and
     evolver_radau5. The following subroutines are called from
     the evolver:
@@ -50,6 +50,8 @@ int linalg_initialise_dense_NR(MultiMatrix *A,
   void *data;
   DataType Dtype;
   int ncol, nrow;
+  printf("Linalg Wrapper: Dense NR\n");
+
   ncol = A->ncol; nrow = A->nrow; Dtype = A->Dtype;
   //Test input:
   lasagna_test(A->ncol != A->nrow, 

@@ -63,7 +63,7 @@ int main(int argc, char **argv) {
   qke_init_output(&qke_struct);
 
   //Handle options:
-  DefaultEvolverOptions(&options);
+  DefaultEvolverOptions(&options,qke_struct.LinearAlgebraWrapper);
   options.used_in_output=interp_idx;
   options.RelTol = qke_struct.rtol;
   options.AbsTol = qke_struct.abstol;
@@ -74,32 +74,20 @@ int main(int argc, char **argv) {
   options.output = qke_store_output;
   //  options.print_variables = qke_print_L;
   //  options.stop_function = qke_stop_at_L;
-  //options.use_sparse = _FALSE_;
-  options.use_sparse = _TRUE_;
-  /**
-  options.linalg_initialise = &(linalg_initialise_dense_NR);
-  options.linalg_finalise = &(linalg_finalise_dense_NR);
-  options.linalg_factorise = &(linalg_factorise_dense_NR);
-  options.linalg_solve = &(linalg_solve_dense_NR);
-  */
-  options.linalg_initialise = &(linalg_initialise_sparse);
-  options.linalg_finalise = &(linalg_finalise_sparse);
-  options.linalg_factorise = &(linalg_factorise_sparse);
-  options.linalg_solve = &(linalg_solve_sparse);
-
-  options.EvolverVerbose=4;
+  options.EvolverVerbose=qke_struct.verbose;
+  options.Cores = qke_struct.nproc;
 
   printf("theta: %g\n",qke_struct.theta_zero);
   start = clock();  
   
-    func_return = generic_evolver(qke_derivs,
-				  &qke_struct,
-				  qke_struct.T_initial,
-				  qke_struct.T_final,
-				  y_inout, 
-				  qke_struct.neq, 
-				  &(options),
-				  error_message);
+  func_return = generic_evolver(qke_derivs,
+				&qke_struct,
+				qke_struct.T_initial,
+				qke_struct.T_final,
+				y_inout, 
+				qke_struct.neq, 
+				&(options),
+				error_message);
 
   end = clock();
   cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;

@@ -216,5 +216,9 @@ enum evolver_type {
   rk, /* Runge-Kutta integrator */
   ndf15 /* stiff integrator */
 };
+typedef enum _LinAlgWrapper{
+  LINALG_WRAPPER_DENSE_NR,
+  LINALG_WRAPPER_SPARSE,
+  LINALG_WRAPPER_SUPERLU} LinAlgWrapper;
 
 #endif

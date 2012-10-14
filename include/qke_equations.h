@@ -6,12 +6,13 @@
 #include "background.h"
 #include "mat_io.h"
 /**************************************************************/
-
 typedef struct qke_param_structure{
   FILE *tmp;
   char output_filename[_FILENAMESIZE_]; //Where to write output.
   int evolver;   //Which time integrator to use
+  LinAlgWrapper LinearAlgebraWrapper; //Wrapper for LU-decompositions
   int nproc;     //Number of cores available.
+  int verbose;   //Level of output
   int Nres;      //Number of resinances
   int neq;       //Number of equations
   int Tres;      //Entries in time/Temperature vector.

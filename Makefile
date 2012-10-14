@@ -53,7 +53,7 @@ INCLUDES = ../include -I$(HEADERSLU)
 %.o:  %.c .base
 	cd $(WRKDIR);$(CC) $(CCFLAG) $(CDEFS) $(BLASDEF) -I$(INCLUDES) -c ../$< -o $*.o
 
-EVO_TOOLS  = multimatrix.o sparse.o linalg_wrapper_dense_NR.o linalg_wrapper_sparse.o linalg_wrapper_SuperLU.o 
+EVO_TOOLS  = multimatrix.o evolver_common.o sparse.o linalg_wrapper_dense_NR.o linalg_wrapper_sparse.o linalg_wrapper_SuperLU.o 
 IO_TOOLS = mat_io.o parser.o
 TOOLS = $(IO_TOOLS) $(EVO_TOOLS) newton.o evolver_ndf15.o  arrays.o evolver_rk45.o evolver_radau5.o  
 

@@ -1,9 +1,9 @@
-#ifndef __WRAPPER_SPARSE /* allow multiple inclusions */
-#define __WRAPPER_SPARSE
+#ifndef __WRAPPER_DENSE_NR__ /* allow multiple inclusions */
+#define __WRAPPER_DENSE_NR__
 
 #include "common.h"
 #include <complex.h>
-#include "multimatrix.h"
+#include "evolver_common.h"
 
 typedef struct {
   MultiMatrix *A;  //Pointer to MultiMatrix A

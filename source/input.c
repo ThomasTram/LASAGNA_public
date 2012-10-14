@@ -46,6 +46,9 @@ int input_init(struct file_content *pfc,
   lasagna_read_double("xmin",pqke->xmin);
   lasagna_read_double("xmax",pqke->xmax);
   lasagna_read_int("evolver",pqke->evolver);	
+  lasagna_read_int("linalg_wrapper",pqke->LinearAlgebraWrapper);
+  lasagna_read_int("nproc",pqke->nproc);
+  lasagna_read_int("verbose",pqke->verbose);
   lasagna_read_double("T_initial",pqke->T_initial);
   lasagna_read_double("T_final",pqke->T_final);
   lasagna_read_double("Tres",pqke->Tres);
@@ -84,29 +87,32 @@ int input_default_params(qke_param *pqke){
   pqke->xext = 3.1;
   pqke->xmin =  0.0001;// 0.0001; //1e-4;
   pqke->xmax = 100.0; //100.0;
-  pqke->evolver = 0;
+  pqke->evolver = 1;
+  pqke->LinearAlgebraWrapper = LINALG_WRAPPER_SPARSE;
+  pqke->nproc = 1;
+  pqke->verbose = 4;
   pqke->Nres = 2;
-  pqke->T_initial = 0.040;
+  pqke->T_initial = 0.025;
   pqke->T_final = 0.010;
-  pqke->Tres = 10000;
+  pqke->Tres = 500;
 
   pqke->v_right = 1.0;
   pqke->v_left = 0.0;
-  pqke->vres = 500;
+  pqke->vres = 200;
   strcpy(pqke->output_filename,"output/dump.mat");
   /** We must have non-zero alpha, otherwise the matrix for 
       solving for dvidT becomes singular.
   */
-  pqke->alpha = 0.2;
+  pqke->alpha = 0.1;
   pqke->rs = 0.0;
   pqke->L_initial = 2e-10;
   pqke->L_final = 5e-5;
-  pqke->delta_m2 = -1e-17; //-10e-18;
-  sinsq2theta = pow(10.0,-6.0);
+  pqke->delta_m2 = -1e-19;
+  sinsq2theta = pow(10.0,-9.0);
   pqke->theta_zero = 0.5*asin(sqrt(sinsq2theta));
   pqke->is_electron = _FALSE_;
   pqke->rtol = 1e-3;
-  pqke->abstol = 1e-5;
+  pqke->abstol = 1e-6;
 
   pqke->trigger_dLdT_over_L = 1e100;
   return _SUCCESS_;
