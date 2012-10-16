@@ -12,7 +12,8 @@ int main(int argc, char **argv) {
   int i;
   int func_return;
   clock_t start, end;
-  double cpu_time_used;
+  double cpu_time_used, elapsed;
+  time_t wtime1, wtime2;
   EvolverOptions options;
 
   extern int evolver_radau5();
@@ -69,6 +70,7 @@ int main(int argc, char **argv) {
 
   printf("is_electron = %d. _TRUE_=%d\n",qke_struct.is_electron,_TRUE_);
   start = clock();  
+  time(&wtime1);
   func_return = generic_evolver(qke_derivs,
 				&qke_struct,
 				qke_struct.T_initial,
@@ -78,8 +80,11 @@ int main(int argc, char **argv) {
 				&(options),
 				error_message);
   end = clock();
+  time(&wtime2);  
   cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-  printf("CPU time used: %g minutes.\n",cpu_time_used/60.0);    
+  printf("CPU time used: %g minutes.\n",cpu_time_used/60);
+  elapsed = difftime(wtime2,wtime1);
+  printf("Wall clock time used: %g minutes.\n",elapsed/60);
   
   free(y_inout);
   free(interp_idx);
