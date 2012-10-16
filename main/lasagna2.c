@@ -71,7 +71,7 @@ int main(int argc, char **argv) {
   printf("is_electron = %d. _TRUE_=%d\n",qke_struct.is_electron,_TRUE_);
   start = clock();  
   time(&wtime1);
-  func_return = generic_evolver(qke_derivs,
+  func_return = generic_evolver(qke_derivs_fixed_grid,
 				&qke_struct,
 				qke_struct.T_initial,
 				qke_struct.T_final,
@@ -89,7 +89,6 @@ int main(int argc, char **argv) {
   free(y_inout);
   free(interp_idx);
   free_qke_param(&qke_struct);
-  background_free_dof(&qke_struct.pbs);
 
 
   if (func_return == _FAILURE_){

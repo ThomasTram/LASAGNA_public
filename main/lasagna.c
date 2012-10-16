@@ -82,15 +82,26 @@ int main(int argc, char **argv) {
   printf("theta: %g\n",qke_struct.theta_zero);
   start = clock();  
   time(&wtime1);
-  func_return = generic_evolver(qke_derivs,
-				&qke_struct,
-				qke_struct.T_initial,
-				qke_struct.T_final,
-				y_inout, 
-				qke_struct.neq, 
-				&(options),
-				error_message);
-
+  if (qke_struct.fixed_grid == 0){
+    func_return = generic_evolver(qke_derivs,
+				  &qke_struct,
+				  qke_struct.T_initial,
+				  qke_struct.T_final,
+				  y_inout, 
+				  qke_struct.neq, 
+				  &(options),
+				  error_message);
+  }
+  else{
+    func_return = generic_evolver(qke_derivs_fixed_grid,
+				  &qke_struct,
+				  qke_struct.T_initial,
+				  qke_struct.T_final,
+				  y_inout, 
+				  qke_struct.neq, 
+				  &(options),
+				  error_message);
+  }
   end = clock();
   time(&wtime2);  
   cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;

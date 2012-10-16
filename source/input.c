@@ -72,12 +72,15 @@ int input_init(struct file_content *pfc,
     printf("Flavour of active species: Electron\n");
   else
     printf("Flavour of active species: Muon/Tau\n");
-  
+  lasagna_read_int("fixed_grid", pqke->fixed_grid);
 
   //Initialise background somewhere
   background_init_dof(&(pqke->pbs));
   //Initialise rest of pqke somewhere
-  init_qke_param(pqke);
+  if (pqke->fixed_grid == 0)
+    init_qke_param(pqke);
+  else 
+    init_qke_param_fixed_grid(pqke);
   return _SUCCESS_;
 }
 
@@ -91,6 +94,7 @@ int input_default_params(qke_param *pqke){
   pqke->LinearAlgebraWrapper = LINALG_WRAPPER_SPARSE;
   pqke->nproc = 1;
   pqke->verbose = 4;
+  pqke->fixed_grid = 0;
   pqke->Nres = 2;
   pqke->T_initial = 0.025;
   pqke->T_final = 0.010;

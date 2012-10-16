@@ -13,6 +13,7 @@ typedef struct qke_param_structure{
   LinAlgWrapper LinearAlgebraWrapper; //Wrapper for LU-decompositions
   int nproc;     //Number of cores available.
   int verbose;   //Level of output
+  int fixed_grid;//Fixed grid?
   int Nres;      //Number of resinances
   int neq;       //Number of equations
   int Tres;      //Entries in time/Temperature vector.

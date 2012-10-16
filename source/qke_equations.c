@@ -215,6 +215,171 @@ int free_qke_param(qke_param *pqke){
   return _SUCCESS_;
 };
 
+int init_qke_param_fixed_grid(qke_param *pqke){
+  int i,j,k,idx,neq,nz;
+  double k1,k2;
+  double Nres, vres, Tres;
+  int **J;
+  Nres = pqke->Nres;
+  vres = pqke->vres;
+  Tres = pqke->Tres;
+  pqke->Tvec = malloc(sizeof(double)*Tres);
+  pqke->xi = malloc(sizeof(double)*Nres);
+  pqke->ui = malloc(sizeof(double)*Nres);
+  pqke->vi = malloc(sizeof(double)*Nres);
+  pqke->duidT = malloc(sizeof(double)*Nres);
+  pqke->dvidT = malloc(sizeof(double)*Nres);
+  pqke->duidx = malloc(sizeof(double)*Nres);
+  pqke->dxidT = malloc(sizeof(double)*Nres);
+  pqke->a = malloc(sizeof(double)*Nres);
+  pqke->y_0 = malloc(sizeof(double)*(1+Nres));
+  pqke->maxstep = malloc(sizeof(double)*(1+Nres));
+  pqke->x_grid = malloc(sizeof(double)*vres);
+  pqke->u_grid = malloc(sizeof(double)*vres);
+  pqke->v_grid = malloc(sizeof(double)*vres);
+  pqke->dvdu_grid = malloc(sizeof(double)*vres);
+  pqke->dudT_grid = malloc(sizeof(double)*vres);
+  pqke->mat = malloc(sizeof(double*)*(Nres+2));
+  for (i=0; i<(Nres+2); i++) 
+    pqke->mat[i] = malloc(sizeof(double)*(Nres + 2));
+  pqke->vv = malloc(sizeof(double)*(Nres + 2));
+  pqke->indx = malloc(sizeof(int)*(Nres + 2));
+
+  //Do some calculations for the u(x) mapping:
+  k1 = pqke->xmin/pqke->xext;
+  k2 = pqke->xmax/pqke->xext;
+  pqke->eps2 = (1+k1)/(k2-k1);
+  pqke->eps1 = k1*(1+pqke->eps2);
+
+  //Some secondary initialisations:
+  for(i=0; i<vres; i++){
+    pqke->v_grid[i] = pqke->v_left+
+      i*(pqke->v_right-pqke->v_left)/(vres-1.0); 
+  }
+  for(i=0; i<Tres; i++){
+    pqke->Tvec[i] = pqke->T_initial+
+      i*(pqke->T_final-pqke->T_initial)/(Tres-1.0); 
+  }
+  if (pqke->is_electron == _TRUE_){
+     pqke->C_alpha = 1.27;
+  }
+  else{
+     pqke->C_alpha = 0.92;
+  }
+  pqke->guess_exists = _FALSE_;
+  
+  //Set up the indices:
+  idx = 0;
+  pqke->index_L = idx;
+  idx++;
+  pqke->index_Pa_plus = idx;
+  idx+=pqke->vres;
+  pqke->index_Pa_minus =idx;
+  idx +=pqke->vres;
+  pqke->index_Ps_plus = idx;
+  idx +=pqke->vres;
+  pqke->index_Ps_minus = idx;
+  idx +=pqke->vres;
+  pqke->index_Px_plus = idx;
+  idx +=pqke->vres;
+  pqke->index_Px_minus = idx;
+  idx +=pqke->vres;
+  pqke->index_Py_plus = idx;
+  idx +=pqke->vres;
+  pqke->index_Py_minus = idx;
+  idx +=pqke->vres;
+
+  //Last thing to do:
+  neq = idx;
+  pqke->neq = neq;
+
+  //Pattern for Jacobi matrix:
+  pqke->Ap = malloc(sizeof(int)*(neq+1));
+  pqke->Ai = malloc(sizeof(int)*neq*neq);
+
+  //Construct Jacobian pattern:
+  J = malloc(sizeof(int *)*neq);
+  J[0] = calloc(neq*neq,sizeof(int)); 
+ for (i=1; i<neq; i++)
+   J[i] = J[i-1]+neq;
+  
+  //Establish diagonal (just to be sure)
+  for (i=0; i<neq; i++)
+    J[i][i] = 1;
+  
+  //F-L dependence:
+  for (i=0; i<vres; i++)
+    J[pqke->index_L][pqke->index_Py_minus+i] = 1;
+  //Loop over grid:
+  for (j=0; j<vres; j++){
+    //F-Pa_plus[j] dependence:
+    J[pqke->index_Pa_plus+j][pqke->index_L] = 1;
+    J[pqke->index_Pa_plus+j][pqke->index_Pa_plus+j] = 1;
+    J[pqke->index_Pa_plus+j][pqke->index_Py_plus+j] = 1;
+    //F-Pa_minus[j] dependence:
+    J[pqke->index_Pa_minus+j][pqke->index_L] = 1;
+    J[pqke->index_Pa_minus+j][pqke->index_Pa_minus+j] = 1;
+    J[pqke->index_Pa_minus+j][pqke->index_Py_minus+j] = 1;
+    //F-Ps_plus[j] dependence:
+    J[pqke->index_Ps_plus+j][pqke->index_Py_plus+j] = 1;
+    //F-Ps_minus[j] dependence:
+    J[pqke->index_Ps_minus+j][pqke->index_Py_minus+j] = 1;
+    //F-Px_plus[j] dependence:
+    J[pqke->index_Px_plus+j][pqke->index_Px_plus+j] = 1;
+    J[pqke->index_Px_plus+j][pqke->index_L] = 1;
+    //    for (k=0; k<vres; k++)
+    //  J[pqke->index_Px_plus+j][pqke->index_Pa_plus+k] = 1;
+    J[pqke->index_Px_plus+j][pqke->index_Py_plus+j] = 1;
+    J[pqke->index_Px_plus+j][pqke->index_Py_minus+j] = 1;
+    //F-Px_minus[j] dependence:
+    J[pqke->index_Px_minus+j][pqke->index_Px_minus+j] = 1;
+    J[pqke->index_Px_minus+j][pqke->index_L] = 1;
+    for (k=0; k<vres; k++)
+      J[pqke->index_Px_minus+j][pqke->index_Pa_plus+k] = 1;
+    J[pqke->index_Px_minus+j][pqke->index_Py_plus+j] = 1;
+    J[pqke->index_Px_minus+j][pqke->index_Py_minus+j] = 1;
+    //F-Py_plus[j] dependence:
+    J[pqke->index_Py_plus+j][pqke->index_Py_plus+j] = 1;
+    J[pqke->index_Py_plus+j][pqke->index_L] = 1;
+    J[pqke->index_Py_plus+j][pqke->index_Pa_plus+j] = 1;
+    for (k=0; k<vres; k++)
+      J[pqke->index_Py_plus+j][pqke->index_Pa_plus+k] = 1;
+    J[pqke->index_Py_plus+j][pqke->index_Ps_plus+j] = 1;
+    J[pqke->index_Py_plus+j][pqke->index_Px_plus+j] = 1;
+    J[pqke->index_Py_plus+j][pqke->index_Px_minus+j] = 1;
+    J[pqke->index_Py_plus+j][pqke->index_Py_plus+j] = 1;
+    //F-Py_minus[j] dependence:
+    J[pqke->index_Py_minus+j][pqke->index_Py_minus+j] = 1;
+    J[pqke->index_Py_minus+j][pqke->index_L] = 1;
+    J[pqke->index_Py_minus+j][pqke->index_Pa_minus+j] = 1;
+    for (k=0; k<vres; k++)
+      J[pqke->index_Py_minus+j][pqke->index_Pa_plus+k] = 1;
+    J[pqke->index_Py_minus+j][pqke->index_Ps_minus+j] = 1;
+    J[pqke->index_Py_minus+j][pqke->index_Px_plus+j] = 1;
+    J[pqke->index_Py_minus+j][pqke->index_Px_minus+j] = 1;
+    J[pqke->index_Py_minus+j][pqke->index_Py_minus+j] = 1;
+  }
+
+
+  //Store pattern in sparse column compressed form:
+  pqke->Ap[0] = 0;
+  nz = 0;
+  for (i=0; i<neq; i++){
+    for (j=0; j<neq; j++){
+      if (J[j][i] == 1){
+	pqke->Ai[nz] = j;
+	nz++;
+      }
+    }
+    pqke->Ap[i+1] = nz;
+  }
+  pqke->Ai = realloc(pqke->Ai,sizeof(int)*nz);
+
+  free(J[0]);
+  free(J);
+  return _SUCCESS_;
+};
+
 
 int get_resonances_xi(double T, 
 		      double L,
