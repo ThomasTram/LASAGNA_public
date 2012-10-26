@@ -52,6 +52,7 @@ int input_init(struct file_content *pfc,
   lasagna_read_double("T_initial",pqke->T_initial);
   lasagna_read_double("T_final",pqke->T_final);
   lasagna_read_double("Tres",pqke->Tres);
+  lasagna_read_double("T_wait",pqke->T_wait);
   lasagna_read_double("v_left",pqke->v_left);
   lasagna_read_double("v_right",pqke->v_right);
   lasagna_read_double("vres",pqke->vres);
@@ -98,6 +99,7 @@ int input_default_params(qke_param *pqke){
   pqke->Nres = 2;
   pqke->T_initial = 0.025;
   pqke->T_final = 0.010;
+  pqke->T_wait = -1; //deactivate stopfunction.
   pqke->Tres = 500;
 
   pqke->v_right = 1.0;

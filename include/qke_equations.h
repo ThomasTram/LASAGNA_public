@@ -104,6 +104,12 @@ typedef struct qke_param_structure{
   int V1_handle; //Position of given matrix in output file
   int Vx_handle; //Position of given matrix in output file
   int VL_handle; //Position of given matrix in output file
+  // parameters for the qke_stop_at_divL function.
+  double T_wait;
+  double max_old; //Contains the over all maximal value L has attained.
+  double max_cur; //Contains the maximal value of L for the oscillation and the sign.
+  int should_break; //Flag indicating that the evolver should soon break.
+  double breakpoint; //The value of T, where the evolver should break.
 } qke_param;
 
 /**
@@ -144,6 +150,11 @@ extern "C" {
 		    double *dy,
 		    void *param,
 		    ErrorMsg error_message);
+  int qke_stop_at_divL(double t,
+		       double *y,
+		       double *dy,
+		       void *param,
+		       ErrorMsg error_message);
   int qke_stop_at_trigger(double t,
 			  double *y,
 			  double *dy,

@@ -14,7 +14,7 @@ vpath %.c source:tools:test:main
 vpath %.o build
 vpath .base build
 
-SuperLU_root = /home/buelow/projects/superLU/SuperLU_MT_2.0
+SuperLU_root = /home/rsh07/Dokumenter/Uni/phdwork/neutrinos/SuperLU_MT_2.0
 include $(SuperLU_root)/make.inc
 
 HEADERSLU=$(SuperLU_root)/SRC
@@ -37,8 +37,8 @@ LDFLAG   = -O1 -g
 #LDFLAG   = -complex-limited-range -g -O3 -B/usr/lib/i386-linux-gnu -I/usr/include/i386-linux-gnu
 #CCFLAG   = -O4 -Wall -g -pg -ggdb --fast-math -D _SUPERLU
 #LDFLAG   = -O4 -Wall -g -pg -ggdb --fast-math -D _SUPERLU
-#CCFLAG = $(CFLAGS) $(CDEFS) $(BLASDEF) -D _SUPERLU
-#LDFLAG = $(LOADOPTS) -D _SUPERLU
+CCFLAG = $(CFLAGS) $(CDEFS) $(BLASDEF) -D _SUPERLU
+LDFLAG = $(LOADOPTS) -D _SUPERLU
 #CCFLAG = $(CFLAGS) $(CDEFS) $(BLASDEF)
 #LDFLAG = $(LOADOPTS)
 #CCFLAG   = -O0 -Wall -ggdb -g

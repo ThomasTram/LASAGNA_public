@@ -578,6 +578,11 @@ int qke_initial_conditions(double Ti, double *y, qke_param *pqke){
     y[pqke->index_Py_minus+i] = Py - Py_bar;
  
   }
+  //initial conditions for qke_stop_at_divL
+  pqke->max_old = L;
+  pqke->max_cur = L;
+  pqke->should_break = _FALSE_;
+  pqke->breakpoint = 0;
   return _SUCCESS_;
 };
 
@@ -725,6 +730,41 @@ int qke_stop_at_L(double t,
     return _FALSE_;
   }
 };
+
+
+int qke_stop_at_divL(double t,
+		     double *y,
+		     double *dy,
+		     void *param,
+		     ErrorMsg error_message){
+  qke_param *pqke=param;
+  double L, T, stopfactor;
+  stopfactor = 2;
+  L = y[pqke->index_L]*_L_SCALE_;
+  T = t;
+  // Check for sign change:
+  if(L*pqke->max_cur < 0){
+    pqke->max_old = max(pqke->max_old,fabs(pqke->max_cur));
+    pqke->max_cur = 0;
+    pqke->should_break = _FALSE_;
+  }
+  // Is the value larger than the current max:
+  if((fabs(L)>fabs(pqke->max_cur)) && (pqke->should_break==_FALSE_)){
+    pqke->max_cur = L;
+    if((fabs(pqke->max_cur) > pqke->max_old*stopfactor)){
+      pqke->breakpoint = T - pqke->T_wait;
+      pqke->should_break = _TRUE_;
+    }
+  }
+  else if(pqke->should_break==_TRUE_){
+    if(fabs(L) < pqke->max_old)
+      pqke->should_break = _FALSE_;
+    else if(T<pqke->breakpoint)
+      return _TRUE_;
+  }
+  return _FALSE_;
+};
+
 
 int qke_print_variables(double T,
 			double *y,

@@ -76,6 +76,7 @@ int main(int argc, char **argv) {
   options.output = qke_store_output;
   //  options.print_variables = qke_print_L;
   //  options.stop_function = qke_stop_at_L;
+  if(qke_struct.T_wait >=0) options.stop_function = qke_stop_at_divL;
   options.EvolverVerbose=qke_struct.verbose;
   options.Cores = qke_struct.nproc;
 
