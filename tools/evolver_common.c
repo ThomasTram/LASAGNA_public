@@ -34,6 +34,7 @@ int DefaultEvolverOptions(EvolverOptions *opt, LinAlgWrapper linalg){
   opt->LinAlgVerbose=1;
   opt->Ap = NULL;
   opt->Ai = NULL;
+  opt->J_pointer_flag = _FALSE_;
   switch (linalg){
   case (LINALG_WRAPPER_DENSE_NR):
     opt->linalg_initialise=linalg_initialise_dense_NR;

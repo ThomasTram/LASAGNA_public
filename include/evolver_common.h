@@ -31,6 +31,10 @@ typedef struct _EvolverOptions{
   int use_sparse;
   int *Ai;
   int *Ap;
+  /** This flags makes the evolver return a pointer to the jacobian and 
+      calculate numjac twice each time it is called.**/
+  int J_pointer_flag;
+  MultiMatrix *J_pointer;
 } EvolverOptions;
 
 struct numjac_workspace{

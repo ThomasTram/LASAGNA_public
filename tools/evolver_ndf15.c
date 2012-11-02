@@ -195,7 +195,7 @@ int evolver_ndf15(int (*derivs)(double x,double * y,double * dy,
     Ai=options->Ai; Ap=options->Ap;
     nnz = Ap[neq];
 
-    lasagna_alloc(Jval, sizeof(double)*nnz, error_message);
+    lasagna_calloc(Jval, nnz, sizeof(double), error_message);
     lasagna_alloc(Aval, sizeof(double)*nnz, error_message);
     lasagna_call(CreateMatrix_SCC(&(J),L_DBL,neq, neq, nnz, Ai, Ap, Jval, error_message),
 		 error_message, error_message);
@@ -204,13 +204,14 @@ int evolver_ndf15(int (*derivs)(double x,double * y,double * dy,
   }
   else{
     printf("Use dense\n");
-    lasagna_alloc(Jval, sizeof(double)*(neq*neq+1), error_message);
+    lasagna_calloc(Jval, (neq*neq+1), sizeof(double), error_message);
     lasagna_alloc(Aval, sizeof(double)*(neq*neq+1), error_message);
     lasagna_call(CreateMatrix_DNR(&(J),L_DBL,neq, neq, Jval, error_message),
 		 error_message, error_message);
     lasagna_call(CreateMatrix_DNR(&(A),L_DBL,neq, neq, Aval, error_message),
 		 error_message, error_message);
   }
+  if(options->J_pointer_flag ==  _TRUE_) options->J_pointer = &(J);
   lasagna_call(linalg_initialise(&A, options, &linalg_workspace_A,error_message),
 	       error_message, error_message);
   lasagna_call(CreateMatrix_DNR(&(RHS), L_DBL, 1, neq, rhs, error_message),
@@ -287,7 +288,32 @@ int evolver_ndf15(int (*derivs)(double x,double * y,double * dy,
 		      &nfenj,
 		      parameters_and_workspace_for_derivs,
 		      error_message),
-	       error_message,error_message);
+	       error_message,error_message);  
+  if(options->J_pointer_flag == _TRUE_){
+    // Setting jacvec to default value.
+    for(j=1;j<=neq;j++) ((struct numjac_workspace*) nj_ws)->jacvec[j]=1.490116119384765597872e-8;
+    // Calling derivs and numjac to ensure a updated Jacobian.
+    lasagna_call((*derivs)(t0,
+			   y+1,
+			   f0+1,
+			   parameters_and_workspace_for_derivs,
+			   error_message),
+		 error_message,error_message);
+    stepstat[2] +=1;
+    lasagna_call(numjac((*derivs),
+			t,
+			y,
+			f0,
+			&J,
+			nj_ws,
+			abstol,
+			neq,
+			&nfenj,
+			parameters_and_workspace_for_derivs,
+			error_message),
+		 error_message,error_message);
+    stepstat[3] += 1;
+  }
   stepstat[3] += 1;
   stepstat[2] += nfenj;
   Jcurrent = _TRUE_; 
@@ -505,7 +531,17 @@ int evolver_ndf15(int (*derivs)(double x,double * y,double * dy,
 	    nfenj=0;
 	    lasagna_call(numjac((*derivs),t,y,f0,&J,nj_ws,abstol,neq,
 			      &nfenj,parameters_and_workspace_for_derivs,error_message),
-		       error_message,error_message);
+			 error_message,error_message);
+	    if(options->J_pointer_flag == _TRUE_){
+	      // Calling derivs and numjac to ensure a updated Jacobian.
+	      lasagna_call((*derivs)(t,y+1,f0+1, parameters_and_workspace_for_derivs,error_message),
+			   error_message,error_message);
+	      stepstat[2] +=1;
+	      lasagna_call(numjac((*derivs),t,y,f0,&J,nj_ws,abstol,neq,
+				  &nfenj,parameters_and_workspace_for_derivs,error_message),
+			   error_message,error_message);
+	      stepstat[3] += 1;
+	    }
 	    stepstat[3] += 1;
 	    stepstat[2] += (nfenj + 1);
 	    Jcurrent = _TRUE_;

@@ -121,7 +121,7 @@ size_t GetByteSize(DataType Dtype){
 }
 
 int PrintMultiMatrix(MultiMatrix *A, char* name){
-  int i,j;
+  int i,j,k[A->ncol];
   DNRformat *StoreDNR;
   SCCformat *StoreSCC;
   double **Mat_dbl;
@@ -138,12 +138,48 @@ int PrintMultiMatrix(MultiMatrix *A, char* name){
 	switch (A->Dtype){
 	case (L_DBL):
 	  Mat_dbl = StoreDNR->Matrix;
-	  printf("%.5f ",Mat_dbl[j][i]);
+	  if(Mat_dbl[j][i] == 0) printf("  0   ");
+	  else printf("%6.0e",Mat_dbl[j][i]);
 	  break;
 	case (L_DBL_CX):
 	  Mat_dbl_cx = StoreDNR->Matrix;
-	  printf("%.5f+i%.5f ",creal(Mat_dbl_cx[j][i]),cimag(Mat_dbl_cx[j][i]));
+	  if(Mat_dbl[j][i] == 0) printf("  0   ");
+	  else printf("%6.0e+i%6.0e ",creal(Mat_dbl_cx[j][i]),cimag(Mat_dbl_cx[j][i]));
 	  break;
+	}
+      }
+      printf("\n");
+    }
+    printf("\n");
+    break;  
+  case (L_SCC):
+    printf("StoreType: L_SCC.\n");
+    StoreSCC = A->Store;
+    for(j=0; j<A->ncol; j++) k[j] = 0;
+    for (j=0; j<A->nrow; j++){
+      for(i=0; i<A->ncol; i++){
+	while((StoreSCC->Ai[StoreSCC->Ap[i]+k[i]] < j)&&(StoreSCC->Ap[i]+k[i]<StoreSCC->Ap[i+1]))
+	  k[i] ++;
+	if((StoreSCC->Ai[StoreSCC->Ap[i]+k[i]] == j)&&(StoreSCC->Ap[i]+k[i]<StoreSCC->Ap[i+1])){
+	  switch (A->Dtype){
+	  case (L_DBL):
+	    printf("%6.0e",((double *) StoreSCC->Ax)[StoreSCC->Ap[i]+k[i]]);
+	    break;
+	  case (L_DBL_CX):
+	    printf("%6.0e+i%6.0e ",
+		   creal(((complex *) StoreSCC->Ax)[StoreSCC->Ap[i]+k[i]]),
+		   cimag(((complex *) StoreSCC->Ax)[StoreSCC->Ap[i]+k[i]]));
+	    break;
+	  }
+	} else {
+	  switch (A->Dtype){
+	  case (L_DBL):
+	    printf("  0   ");
+	    break;
+	  case (L_DBL_CX):
+	    printf("%6.0e+i%6.0e",0.,0.);
+	    break;
+	  }
 	}
       }
       printf("\n");

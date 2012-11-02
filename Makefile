@@ -65,7 +65,11 @@ LASAGNA = lasagna.o
 
 LASAGNA2 = lasagna2.o
 
+LASAGNA_LYA = lasagna_lya.o
+
 QKE_EQUATIONS = qke_equations.o
+
+LYA_EQUATIONS = lya_equations.o
 
 BACKGROUND = background.o
 
@@ -83,6 +87,8 @@ EXTRACT_MATRIX = extract_matrix.o
 
 INPUT = input.o
 
+LYA_INPUT = lya_input.o
+
 C_TOOLS =  $(addprefix tools/, $(addsuffix .c,$(basename $(TOOLS))))
 C_SOURCE = $(addprefix source/, $(addsuffix .c,$(basename $(QKE_EQUATIONS) $(BACKGROUND) $(INPUT))))
 C_TEST = $(addprefix test/, $(addsuffix .c,$(basename $(TEST_MATIO) $(TEST_PROFILE) $(TEST_RKODE) $(TEST_PARTIAL) )))
@@ -97,6 +103,9 @@ lasagna: $(TOOLS) $(QKE_EQUATIONS) $(BACKGROUND) $(INPUT) $(LASAGNA)
 	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) $(LIBSLU)/$(SUPERLULIB) $(BLASLIB) $(MPLIB) -lm
 
 lasagna2:$(TOOLS) $(QKE_EQUATIONS) $(BACKGROUND) $(INPUT) $(LASAGNA2)
+	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) $(LIBSLU)/$(SUPERLULIB) $(BLASLIB) $(MPLIB) -lm
+
+lasagna_lya: $(TOOLS) $(QKE_EQUATIONS) $(LYA_EQUATIONS) $(BACKGROUND) $(INPUT) $(LYA_INPUT) $(LASAGNA_LYA)	
 	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) $(LIBSLU)/$(SUPERLULIB) $(BLASLIB) $(MPLIB) -lm
 
 test_profile: $(TOOLS) $(QKE_EQUATIONS) $(BACKGROUND) $(TEST_PROFILE)
