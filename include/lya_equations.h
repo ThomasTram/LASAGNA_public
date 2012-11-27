@@ -113,10 +113,12 @@ typedef struct lya_param_structure{
   double max_cur;
   int should_break;
   double breakpoint;
+  double I_stop;
   // For lyapunov calculation only:
   double v_scale; //Scale to suppres the lyapunov vectors.
   int lyapunov_seed; //For the random start vector if running lasagna_lya.
   int index_v;
+  int v_handle;
   int I_handle;
   MultiMatrix **J_pp;
 } lya_param;

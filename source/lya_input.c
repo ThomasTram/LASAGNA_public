@@ -76,6 +76,7 @@ int lya_input_init(struct file_content *pfc,
   lasagna_read_int("lyapunov_seed",plya->lyapunov_seed);
   lasagna_read_double("v_scale",plya->v_scale);
   lasagna_read_double("T_wait",plya->T_wait);
+  lasagna_read_double("I_stop",plya->I_stop);
 
   //Initialise background somewhere
   background_init_dof(&(plya->pbs));
@@ -124,5 +125,6 @@ int lya_input_default_params(lya_param *plya){
   plya->lyapunov_seed = 1;
   plya->v_scale = 1e10;
   plya->T_wait = -1; //Deactivate stop_at_divL
+  plya->I_stop = 100;
   return _SUCCESS_;
 }

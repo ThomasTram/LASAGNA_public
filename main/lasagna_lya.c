@@ -77,7 +77,7 @@ int main(int argc, char **argv) {
   options.output = lya_store_output;
   //  options.print_variables = qke_print_L;
   //  options.stop_function = qke_stop_at_L;
-  if(lya_struct.T_wait >= 0)  options.stop_function = qke_stop_at_divL;
+  if(lya_struct.T_wait >= 0)  options.stop_function = lya_stop_at_divL;
   options.EvolverVerbose=lya_struct.verbose;
   options.Cores = lya_struct.nproc;
   options.J_pointer_flag = _TRUE_;

@@ -430,6 +430,8 @@ int lya_init_output(lya_param *plya){
   mat_add_matrix(outf,"V1_vec",miDOUBLE,Tres,1,&(plya->V1_handle));
   mat_add_matrix(outf,"Vx_vec",miDOUBLE,Tres,1,&(plya->Vx_handle));
   mat_add_matrix(outf,"VL_vec",miDOUBLE,Tres,1,&(plya->VL_handle));
+  //Add lyapunov vector
+  mat_add_matrix(outf,"lya_vector",miDOUBLE,Tres,plya->neq,&(plya->v_handle));
   //Add constant parameters:
   mat_add_matrix(outf,"L_initial",miDOUBLE,1,1,&handle);
   mat_add_matrix(outf,"delta_m2_theta_zero",miDOUBLE,1,2,&handle);
@@ -515,6 +517,7 @@ int lya_store_output(double T,
   mat_write_fast(&(plya->VL),plya->VL_handle,8,1);
   mat_write_fast(&(plya->b),plya->b_a_vec_handle,8,1);
   mat_write_fast(&Ilost,plya->I_handle,8,1);
+  mat_write_fast(y+plya->index_v,plya->v_handle,8,plya->neq);
   mat_write_fast(plya->vi,plya->b_a_vec_handle,8,Nres);//Wrong
 
   //Write temperature at last so we know that everything has been written:
@@ -755,7 +758,8 @@ int lya_derivs(double T,
     Calculate dv/dT = J*v.
   */
 
-  //Calculate J.
+  //Scale the L-component of v:
+  //y[plya->neq] /= _L_SCALE_;
   switch(plya->LinearAlgebraWrapper){
   case LINALG_WRAPPER_SPARSE:
   case LINALG_WRAPPER_SUPERLU:
@@ -784,6 +788,10 @@ int lya_derivs(double T,
     break;
 
   }
+
+  // Scale the component of v that comes from L.
+  //y[plya->neq] *= _L_SCALE_;
+  //dy[plya->neq] *= _L_SCALE_;
   /*
   for(i=0; i<plya->neq; i++) printf("%6.0e",y[i]);
   printf("\n");
@@ -947,7 +955,8 @@ int lya_stop_at_divL(double t,
 		     void *param,
 		     ErrorMsg error_message){
   lya_param *plya=param;
-  double L, T, stopfactor;
+  double L, T, stopfactor,v_length_sq;
+  int i;
   stopfactor = 2;
   L = y[plya->index_L]*_L_SCALE_;
   T = t;
@@ -970,6 +979,13 @@ int lya_stop_at_divL(double t,
       plya->should_break = _FALSE_;
     else if(T<plya->breakpoint)
       return _TRUE_;
+  }
+  v_length_sq = 0;
+  for(i=plya->neq; i<2*plya->neq; i++)
+    v_length_sq += y[i]*y[i];
+  if(sqrt(v_length_sq)*plya->v_scale > pow(2,plya->I_stop)){
+    printf("The information loss is larger than %g bits. Calculation stopped.\n",plya->I_stop);
+    return _TRUE_;
   }
   return _FALSE_;
 };
