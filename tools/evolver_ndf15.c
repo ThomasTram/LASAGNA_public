@@ -111,8 +111,6 @@ int evolver_ndf15(int (*derivs)(double x,double * y,double * dy,
 	
   /* Misc: */
   int nfenj,j,ii,jj, numidx, neqp=neq+1;
-  int max_reuse = INT_MAX;
-  int reuse = 0;
 
   /* Matrices for jacobian and linearisation: */
   MultiMatrix J, A, RHS, DEL;
@@ -408,35 +406,7 @@ int evolver_ndf15(int (*derivs)(double x,double * y,double * dy,
       absh = fabs(h);
       done = _TRUE_;
     }
-    if(new_jacobian == _TRUE_)
-      reuse = 0;
-    else
-      reuse ++;
     if (((fabs(absh-abshlast)/absh)>1e-6)||(k!=klast)){
-      if(reuse > max_reuse){
-	lasagna_call((*derivs)(t,y+1,f0+1,parameters_and_workspace_for_derivs,error_message),
-		     error_message,error_message);
-	nfenj=0;
-	lasagna_call(numjac((*derivs),t,y,f0,&J,nj_ws,abstol,neq,
-			    &nfenj,parameters_and_workspace_for_derivs,error_message),
-		     error_message,error_message);
-	if(options->J_pointer_flag == _TRUE_){
-	  // Calling derivs and numjac to ensure a updated Jacobian.
-	  lasagna_call((*derivs)(t,y+1,f0+1, parameters_and_workspace_for_derivs,error_message),
-		       error_message,error_message);
-	  stepstat[2] +=1;
-	  lasagna_call(numjac((*derivs),t,y,f0,&J,nj_ws,abstol,neq,
-			      &nfenj,parameters_and_workspace_for_derivs,error_message),
-		       error_message,error_message);
-	  stepstat[3] += 1;
-	}
-	stepstat[3] += 1;
-	stepstat[2] += (nfenj + 1);
-	Jcurrent = _TRUE_;
-	new_jacobian = _TRUE_;
-      }
-      else
-	new_jacobian = _FALSE_;
       adjust_stepsize(dif,(absh/abshlast),neq,k);
       hinvGak = h * invGa[k-1];
       nconhk = 0;
@@ -444,6 +414,7 @@ int evolver_ndf15(int (*derivs)(double x,double * y,double * dy,
       lasagna_call(linalg_factorise(linalg_workspace_A, new_jacobian, error_message),
 		   error_message, error_message);
       stepstat[4] += 1;
+      new_jacobian = _FALSE_;
       havrate = _FALSE_;
     }
     /*		Loop for advancing one step */
