@@ -56,7 +56,6 @@ int main(int argc, char **argv) {
   else{
     generic_evolver = evolver_ndf15;
   }
-  
   qke_initial_conditions(qke_struct.T_initial, 
 			 y_inout, 
 			 &qke_struct);

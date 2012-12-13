@@ -759,7 +759,7 @@ int lya_derivs(double T,
   */
 
   //Scale the L-component of v:
-  //y[plya->neq] /= _L_SCALE_;
+  y[plya->neq] /= _L_SCALE_;
   switch(plya->LinearAlgebraWrapper){
   case LINALG_WRAPPER_SPARSE:
   case LINALG_WRAPPER_SUPERLU:
@@ -790,8 +790,8 @@ int lya_derivs(double T,
   }
 
   // Scale the component of v that comes from L.
-  //y[plya->neq] *= _L_SCALE_;
-  //dy[plya->neq] *= _L_SCALE_;
+  y[plya->neq] *= _L_SCALE_;
+  dy[plya->neq] *= _L_SCALE_;
   /*
   for(i=0; i<plya->neq; i++) printf("%6.0e",y[i]);
   printf("\n");
