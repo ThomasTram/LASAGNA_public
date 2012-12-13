@@ -17,7 +17,7 @@ int evolver_rk45(int (*derivs)(double x,double * y,double * dy,
 		 double x_ini,
 		 double x_final,
 		 double * y_inout, 
-		 int neq, 
+		 size_t neq, 
 		 EvolverOptions *options,
 		 ErrorMsg error_message);
 
@@ -30,7 +30,7 @@ int evolver_rkdp45(int (*derivs)(double x,
 		   double t_ini,
 		   double t_final,
 		   double * y_inout, 
-		   int neq, 
+		   size_t neq, 
 		   EvolverOptions *options,
 		   ErrorMsg error_message);
 

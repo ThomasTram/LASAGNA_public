@@ -18,7 +18,7 @@ extern "C" {
 		     double t0,
 		     double tfinal,
 		     double * y_inout, 
-		     int neq, 
+		     size_t neq, 
 		     EvolverOptions *options,
 		     ErrorMsg error_message);
   int update_linear_system_radau5(MultiMatrix *J,
@@ -38,15 +38,15 @@ extern "C" {
 			  double *y0, 
 			  double *Fi,
 			  int *interpidx,
-			  int neq);
+			  size_t neq);
   double norm_inf(double *y, 
 		  double *err_y, 
 		  double threshold,
-		  int neq);
+		  size_t neq);
   double norm_L2(double *y, 
 		 double *err_y,
 		 double threshold,
-		 int neq);
+		 size_t neq);
 
 #ifdef __cplusplus
 }

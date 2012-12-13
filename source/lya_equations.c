@@ -4,7 +4,8 @@
 #include "common.h"
 #include "lya_equations.h"
 int init_lya_param(lya_param *plya){
-  int i,j,k,idx,neq,nz;
+  int i,j,k,idx,nz;
+  size_t neq;
   double k1,k2;
   double Nres, vres, Tres;
   int **J;

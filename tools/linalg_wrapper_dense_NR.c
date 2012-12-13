@@ -111,7 +111,8 @@ int linalg_factorise_dense_NR(void *linalg_workspace,
   DNRformat *StoreA=ws->A->Store;
   DNRformat *StoreLU=ws->LU->Store;
   double luparity;
-  int neq=ws->neq;
+  size_t neq=ws->neq;
+
   //Copy data from A into ws->LU. This can be done by memcpy.
   memcpy(StoreLU->Data, 
 	 StoreA->Data, 

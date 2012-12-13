@@ -277,7 +277,8 @@ int sp_refactor(sp_num *N, sp_mat *A){
 }
 
 int column_grouping(sp_mat *G, int *col_g, int *filled){
-  int curcol,testcol,groupnum,fitted,neq;
+  int curcol,testcol,groupnum,fitted;
+  size_t neq;
   int i, *Ap, *Ai;
 	
   neq = G->ncols;	
@@ -324,7 +325,8 @@ int column_grouping(sp_mat *G, int *col_g, int *filled){
 }
 
 int column_grouping2(sp_mat *G, int *col_g, int *filled){
-  int testcol,groupnum,fitted,neq;
+  int testcol,groupnum,fitted;
+  size_t neq;
   int i, *Ap, *Ai,done;
 	
   neq = G->ncols;	
@@ -369,7 +371,7 @@ int column_grouping2(sp_mat *G, int *col_g, int *filled){
   return (groupnum-1);
 }
 
-int get_column_grouping(int *Ap, int *Ai, int neq, int *col_g, int *filled){
+int get_column_grouping(int *Ap, int *Ai, size_t neq, int *col_g, int *filled){
   int testcol,groupnum,fitted;
   int i, done;
 	

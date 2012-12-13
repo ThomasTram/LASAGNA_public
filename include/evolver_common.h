@@ -63,7 +63,7 @@ struct numjac_workspace{
   int uninitialize_numjac_workspace(void * numjac_workspace);
   int numjac(int (*derivs)(double x,double * y,double * dy,void * parameters_and_workspace,ErrorMsg error_message),
 	     double t, double *y, double *fval, MultiMatrix *J, void* numjac_workspace,
-	     double thresh, int neq, int *nfe,
+	     double thresh, size_t neq, int *nfe,
 	     void * parameters_and_workspace_for_derivs, ErrorMsg error_message);
 
 

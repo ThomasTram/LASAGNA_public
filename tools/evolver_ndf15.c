@@ -64,7 +64,7 @@ int evolver_ndf15(int (*derivs)(double x,double * y,double * dy,
 		  double t0,
 		  double tfinal,
 		  double * y_inout, 
-		  int neq, 
+		  size_t neq, 
 		  EvolverOptions *options,
 		  ErrorMsg error_message){
 	
@@ -110,7 +110,8 @@ int evolver_ndf15(int (*derivs)(double x,double * y,double * dy,
   int k,klast,nconhk,iter,next=0,kopt,tdir;
 	
   /* Misc: */
-  int nfenj,j,ii,jj, numidx, neqp=neq+1;
+  int nfenj,j,ii,jj, numidx;
+  size_t neqp=neq+1;
 
   /* Matrices for jacobian and linearisation: */
   MultiMatrix J, A, RHS, DEL;
@@ -259,7 +260,7 @@ int evolver_ndf15(int (*derivs)(double x,double * y,double * dy,
     for(ii=1;ii<=neq;ii++){
       if (interpidx[ii]==_TRUE_) numidx++;
     }
-    printf("%d/%d\n",numidx,neq);
+    printf("%d/%d\n",numidx,(int) neq);
   }
   
   htspan = fabs(tfinal-t0);
@@ -877,7 +878,7 @@ void eqvec(double *datavec,double *emptyvec, int n){
 
 /* Subroutine that interpolates from information stored in dif */
 int interp_from_dif(double tinterp,double tnew,double *ynew,double h,double **dif,int k, double *yinterp,
-		    double *ypinterp, double *yppinterp, int* index, int neq, int output){
+		    double *ypinterp, double *yppinterp, int* index, size_t neq, int output){
   /* Output=1: only y_vector. Output=2: y and y prime. Output=3: y, yp and ypp*/
   int i,j,m,l,p,factor;
   double sumj,suml,sump,prodm,s;
@@ -955,7 +956,7 @@ int interp_from_dif(double tinterp,double tnew,double *ynew,double h,double **di
   return _SUCCESS_;
 }
 
-int adjust_stepsize(double **dif, double abshdivabshlast, int neq,int k){
+int adjust_stepsize(double **dif, double abshdivabshlast, size_t neq,int k){
   double mydifU[5][5]={{-1,-2,-3,-4,-5},{0,1,3,6,10},{0,0,-1,-4,-10},{0,0,0,1,5},{0,0,0,0,-1}};
   double tempvec[5];
   double mydifRU[5][5];
@@ -996,7 +997,7 @@ int adjust_stepsize(double **dif, double abshdivabshlast, int neq,int k){
 int update_linear_system_ndf15(MultiMatrix *J, 
 			       MultiMatrix *A, 
 			       double hinvGak){
-  int neq=J->ncol;
+  size_t neq=J->ncol;
   double luparity, *Ax, *Jx;
   int i,j,*Ap,*Ai,funcreturn;
   SCCformat *JStoreSCC,*AStoreSCC;

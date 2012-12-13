@@ -15,7 +15,7 @@ typedef struct qke_param_structure{
   int verbose;   //Level of output
   int fixed_grid;//Fixed grid?
   int Nres;      //Number of resinances
-  int neq;       //Number of equations
+  size_t neq;       //Number of equations
   int Tres;      //Entries in time/Temperature vector.
   int is_electron; //True if we have electron neutrino, False otherwise.
   int guess_exists;

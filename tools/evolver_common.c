@@ -86,7 +86,7 @@ int numjac(int (*derivs)(double x,
 	   MultiMatrix* J, 
 	   void *numjac_workspace,
 	   double thresh, 
-	   int neq, 
+	   size_t neq, 
 	   int *nfe, 
 	   void * parameters_and_workspace_for_derivs,
 	   ErrorMsg error_message){
@@ -351,7 +351,8 @@ int initialize_numjac_workspace(MultiMatrix *J,
 				ErrorMsg error_message){
   struct numjac_workspace * nj_ws;
   SCCformat *StoreSCC; 
-  int i,neq = J->ncol, neqp=neq+1;
+  int i;
+  size_t neq = J->ncol, neqp=neq+1;
   
   lasagna_alloc(nj_ws, sizeof(struct numjac_workspace), error_message);
   /* Allocate vectors and matrices: */

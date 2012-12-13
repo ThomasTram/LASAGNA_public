@@ -14,7 +14,7 @@ int evolver_radau5(int (*derivs)(double x,double * y,double * dy,
 		   double t_ini,
 		   double t_final,
 		   double * y0, 
-		   int neq, 
+		   size_t neq, 
 		   EvolverOptions *options,
 		   ErrorMsg error_message){
 	
@@ -77,10 +77,9 @@ int evolver_radau5(int (*derivs)(double x,double * y,double * dy,
   int first_step = _TRUE_, Newton_converged, got_ynew, J_current, new_jacobian;
   int reuse_stepsize, reuse_jacobian, last_failed=_TRUE_;
 
-  double (*error_norm)(double *y, double *err_y, double threshold, int neq);
+  double (*error_norm)(double *y, double *err_y, double threshold, size_t neq);
 
   int i, j;
-
 
   double *W, *dW, *Y0pZ, *rhs, *Fi, *Zlast;
   double *err, *diff, *xtemp, *ytemp, *ynew, *f0, *ylast, *ftmp, *dfdt;
@@ -830,7 +829,7 @@ int update_linear_system_radau5(MultiMatrix *J,
 				MultiMatrix *Z,
 				double hnew){
 
-  int neq=J->ncol;
+  size_t neq=J->ncol;
   double gamma_hat = 3.0-pow(3.0,1.0/3.0)+pow(3.0,2.0/3.0);
   double alpha_hat = 0.5*(6.0+pow(3.0,1.0/3.0)-pow(3.0,2.0/3.0));
   double beta_hat = 0.5*pow(3.0,1.0/6.0)*(3.0+pow(3.0,2.0/3.0));
@@ -938,7 +937,7 @@ int dense_output_radau5(double tinterp,
 			double *y0, 
 			double *Z,
 			int *interpidx,
-			int neq){
+			size_t neq){
   double theta, theta2, theta3;
   int i;
   double sr6;
@@ -988,7 +987,7 @@ int dense_output_radau5(double tinterp,
 double norm_inf(double *y, 
 		double *err_y, 
 		double threshold,
-		int neq){
+		size_t neq){
   int i;
   double wt,max_tmp=0.0;
   
@@ -1003,7 +1002,7 @@ double norm_inf(double *y,
 double norm_L2(double *y, 
 	       double *err_y,
 	       double threshold,
-	       int neq){
+	       size_t neq){
   int i;
   double t, wt, sum = 0.0;
   

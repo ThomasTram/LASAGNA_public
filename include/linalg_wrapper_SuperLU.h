@@ -18,7 +18,7 @@ typedef struct {
   superlumt_options_t superlumt_options;
   Gstat_t  Gstat;
   int SLU_info;
-  int neq;
+  size_t neq;
   int *perm_r;
   int *perm_c;
 } SLU_structure;

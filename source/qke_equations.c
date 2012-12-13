@@ -4,7 +4,8 @@
 #include "common.h"
 #include "qke_equations.h"
 int init_qke_param(qke_param *pqke){
-  int i,j,k,idx,neq,nz;
+  int i,j,k,idx,nz;
+  size_t neq;
   double k1,k2;
   double Nres, vres, Tres;
   int **J;
@@ -216,7 +217,8 @@ int free_qke_param(qke_param *pqke){
 };
 
 int init_qke_param_fixed_grid(qke_param *pqke){
-  int i,j,k,idx,neq,nz;
+  int i,j,k,idx,nz;
+  size_t neq;
   double k1,k2;
   double Nres, vres, Tres;
   int **J;

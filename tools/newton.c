@@ -8,7 +8,7 @@ int Newton(int (*vecfun)(double * y, double * Fy, void *param),
 	   double rtol,
 	   int *iter,
 	   int maxiter,
-	   int neq,
+	   size_t neq,
 	   ErrorMsg error_message){
   double *Fval,**jac,lusign,*vv,*mdelta_y;
   int i,*indx,err_idx=-1;
@@ -87,7 +87,7 @@ int Newton(int (*vecfun)(double * y, double * Fy, void *param),
 int jacobian_for_Newton(int (*vecfun)(double * y, double * Fy, void *param),
 			double *y0,
 			double *Fval,
-			int neq,
+			size_t neq,
 			void *param,
 			double **jac){
   double del;

@@ -10,7 +10,7 @@ typedef struct {
   MultiMatrix *LU; //The LU decomposition.
   double *LUw;     //Workspace for LU
   int *luidx;      //Permutation vector for LU.
-  int neq;
+  size_t neq;
 } DNR_structure;
 
 
