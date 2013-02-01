@@ -186,6 +186,8 @@ extern "C" {
 				double *I_VxPy_minus,
 				double *I_f0Pa_plus,
 				double *I_rho_ss,
+				double *I_rho_ss_bar,
+				double *I_f0,
 				ErrorMsg error_message);
   int get_parametrisation(double T,qke_param *pqke, ErrorMsg error_message);
   int get_partial_derivatives(double T,

@@ -839,15 +839,19 @@ int get_integrated_quantities(double *y,
 			      double *I_VxPy_minus,
 			      double *I_f0Pa_plus,
 			      double *I_rho_ss,
+			      double *I_rho_ss_bar,
+			      double *I_f0,
 			      ErrorMsg error_message){
   int i;
   double w_trapz, x, x2, f0, Vx;
-  double Py_minus, Pa_plus, Ps_plus_Ps_minus;
+  double Py_minus, Pa_plus, Ps, Ps_bar;
 			      
   /** Integrated quantities needed. We integrate in x space: */
   *I_VxPy_minus = 0.0;
   *I_f0Pa_plus = 0.0;
   *I_rho_ss = 0.0;
+  *I_rho_ss_bar = 0.0;
+  *I_f0 = 0.0;
   for (i=0; i<pqke->vres; i++){
     if (i==0)
       w_trapz = 0.5*(pqke->x_grid[i+1]-pqke->x_grid[i]);
@@ -861,11 +865,14 @@ int get_integrated_quantities(double *y,
     Vx = pqke->Vx/x;
     Py_minus = y[pqke->index_Py_minus+i];
     Pa_plus = y[pqke->index_Pa_plus+i];
-    Ps_plus_Ps_minus = (y[pqke->index_Ps_plus+i] + y[pqke->index_Ps_minus+i]);
+    Ps = (y[pqke->index_Ps_plus+i] + y[pqke->index_Ps_minus+i]);
+    Ps_bar = (y[pqke->index_Ps_plus+i] - y[pqke->index_Ps_minus+i]);
       
     *I_VxPy_minus += w_trapz*(x2*f0*Vx*Py_minus);
     *I_f0Pa_plus += w_trapz*(x2*f0*Pa_plus);
-    *I_rho_ss += w_trapz*(x2*f0*Ps_plus_Ps_minus); //From equation 2.18 in KS01.
+    *I_rho_ss += w_trapz*(x2*f0*Ps); //From equation 2.18 in KS01.
+    *I_rho_ss_bar += w_trapz*(x2*f0*Ps_bar);
+    *I_f0 += w_trapz*(x2*f0);
   }
   return _SUCCESS_;
 }
@@ -1081,7 +1088,8 @@ int qke_derivs(double T,
   double x;
   double Gamma, D, V0, V1, Pa_plus, Pa_minus, Ps_plus, Ps_minus;
   double Px_plus, Px_minus, Py_plus, Py_minus, f0,  mu_div_T;
-  double feq_plus, feq_minus, I_VxPy_minus, I_f0Pa_plus, I_rho_ss;
+  double feq_plus, feq_minus, feq, feq_bar;
+  double I_VxPy_minus, I_f0Pa_plus, I_rho_ss, I_rho_ss_bar, I_f0;
   double dudTdvdu, delta_v;
   double rs;
   int idx, stencil_method;
@@ -1118,6 +1126,8 @@ int qke_derivs(double T,
 					 &I_VxPy_minus,
 					 &I_f0Pa_plus,
 					 &I_rho_ss,
+					 &I_rho_ss_bar,
+					 &I_f0,
 					 error_message),
 	       error_message,error_message);
    
@@ -1166,13 +1176,15 @@ int qke_derivs(double T,
     //Regulator for sterile population:
     rs = pqke->rs;
     //Distributions:
-    feq_plus = 1.0/(1.0+exp(x-mu_div_T))+1.0/(1.0+exp(x+mu_div_T));
+    feq = 1.0/(1.0+exp(x-mu_div_T));
+    feq_bar = 1.0/(1.0+exp(x+mu_div_T));
+    feq_plus = feq + feq_bar;
     //Use an expansion for feq_minus since mu_div_T is very small.
     feq_minus = exp(x)*2*mu_div_T/(1+exp(x-mu_div_T))/(1+exp(x+mu_div_T));
     //Use the unexpanded expression if the error grows too large.
     if(exp(x+mu_div_T)/6*pow(mu_div_T,3)/(1+exp(x-mu_div_T))/
        (1+exp(x+mu_div_T))/feq_minus > 1e-10)
-      feq_minus = 1.0/(1.0+exp(x-mu_div_T))-1.0/(1.0+exp(x+mu_div_T));
+      feq_minus = feq - feq_bar;
 
     f0 = 1.0/(1.0+exp(x));
 
@@ -1199,13 +1211,17 @@ int qke_derivs(double T,
       dudTdvdu*drhodv(y, delta_v, idx, stencil_method);
 
     idx = pqke->index_Ps_plus+i;
-    dy[idx] = 1.0/(H*T)*(Vx*Py_plus - rs*Gamma*(1.0/(6.0*_ZETA3_)*I_rho_ss*
-						feq_plus-0.5*f0*Ps_plus)) +
+    dy[idx] = 1.0/(H*T)*(Vx*Py_plus - 
+			 rs*Gamma*(1.0/(4.0*I_f0)*I_rho_ss*feq + 
+				   1.0/(4.0*I_f0)*I_rho_ss_bar*feq_bar -
+				   0.5*f0*Ps_plus)) +
       dudTdvdu*drhodv(y, delta_v, idx, stencil_method);
 
     idx = pqke->index_Ps_minus+i;
-    dy[idx] = 1.0/(H*T)*(Vx*Py_minus-rs*Gamma*f0*
-			 (1.0-0.5*(Pa_minus+Ps_minus))) +
+    dy[idx] = 1.0/(H*T)*(Vx*Py_minus -
+			 rs*Gamma*(1.0/(4.0*I_f0)*I_rho_ss*feq - 
+				   1.0/(4.0*I_f0)*I_rho_ss_bar*feq_bar -
+				   0.5*f0*Ps_minus)) +
       dudTdvdu*drhodv(y, delta_v, idx, stencil_method);
 
     idx = pqke->index_Px_plus+i;
@@ -1245,7 +1261,8 @@ int qke_derivs_fixed_grid(double T,
   double f0,  mu_div_T;
   double Pa_plus,Pa_minus,Ps_plus,Ps_minus;
   double Px_plus,Px_minus,Py_plus,Py_minus;
-  double feq_plus, feq_minus, I_VxPy_minus, I_f0Pa_plus, I_rho_ss;
+  double feq_plus, feq_minus, feq, feq_bar;
+  double I_VxPy_minus, I_f0Pa_plus, I_rho_ss, I_rho_ss_bar, I_f0;
   double rs;
   int idx;
   double dLdT;
@@ -1273,6 +1290,8 @@ int qke_derivs_fixed_grid(double T,
 					 &I_VxPy_minus,
 					 &I_f0Pa_plus,
 					 &I_rho_ss,
+					 &I_rho_ss_bar,
+					 &I_f0,
 					 error_message),
 	       error_message,error_message);
 
@@ -1314,8 +1333,16 @@ int qke_derivs_fixed_grid(double T,
     //Regulator for sterile population:
     rs = pqke->rs;
     //Distributions:
-    feq_plus = 1.0/(1.0+exp(x-mu_div_T))+1.0/(1.0+exp(x+mu_div_T));
-    feq_minus = 1.0/(1.0+exp(x-mu_div_T))-1.0/(1.0+exp(x+mu_div_T));
+    feq_bar = 1.0/(1.0+exp(x+mu_div_T));
+    feq_plus = feq + feq_bar;
+    feq_plus = feq + feq_bar;
+    //Use an expansion for feq_minus since mu_div_T is very small.
+    feq_minus = exp(x)*2*mu_div_T/(1+exp(x-mu_div_T))/(1+exp(x+mu_div_T));
+    //Use the unexpanded expression if the error grows too large.
+    if(exp(x+mu_div_T)/6*pow(mu_div_T,3)/(1+exp(x-mu_div_T))/
+       (1+exp(x+mu_div_T))/feq_minus > 1e-10)
+      feq_minus = feq - feq_bar;
+
     f0 = 1.0/(1.0+exp(x));
     
     idx = pqke->index_Pa_plus+i;
@@ -1325,13 +1352,17 @@ int qke_derivs_fixed_grid(double T,
     dy[idx] = -1.0/(H*T)*(Vx*Py_minus+Gamma*(2.0*feq_minus/f0-Pa_minus));
 
     idx = pqke->index_Ps_plus+i;
-    dy[idx] = 1.0/(H*T)*(Vx*Py_plus - rs*Gamma*(1.0/(6.0*_ZETA3_)*I_rho_ss*
-					       feq_plus-0.5*f0*Ps_plus));
-    
+    dy[idx] = 1.0/(H*T)*(Vx*Py_plus -
+			 rs*Gamma*(1.0/(4.0*I_f0)*I_rho_ss*feq + 
+				   1.0/(4.0*I_f0)*I_rho_ss_bar*feq_bar -
+				   0.5*f0*Ps_plus));
+
     idx = pqke->index_Ps_minus+i;
-    dy[idx] = 1.0/(H*T)*(Vx*Py_minus-rs*Gamma*f0*
-			 (1.0-0.5*(Pa_minus+Ps_minus)));
-    
+    dy[idx] = 1.0/(H*T)*(Vx*Py_minus -
+			 rs*Gamma*(1.0/(4.0*I_f0)*I_rho_ss*feq - 
+				   1.0/(4.0*I_f0)*I_rho_ss_bar*feq_bar -
+				   0.5*f0*Ps_minus));
+
     idx = pqke->index_Px_plus+i;
     dy[idx] = 1.0/(H*T)*((V0+V1)*Py_plus+VL*Py_minus+D*Px_plus);
 
