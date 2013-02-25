@@ -1,5 +1,6 @@
 /** @file lasagna.c 
  * Thomas Tram Bülow, 25.08.2011    
+ * Modified by Rasmus Sloth Hansen 2013
  */
  
 #include "lasagna.h"

@@ -1,5 +1,6 @@
 /** @file qke_equations.c 
  * Thomas Tram Bülow, 25.08.2011    
+ * Modified Rasmus Sloth Hansen, 2013
  */
 #include "common.h"
 #include "qke_equations.h"

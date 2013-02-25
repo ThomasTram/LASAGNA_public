@@ -1,5 +1,6 @@
 #include "evolver_radau5.h"
 /**
+   Modified by Rasmus Sloth Hansen, 2013
    Statistics is saved in the stepstat[6] vector. The entries are:
    stepstat[0] = Successful steps.
    stepstat[1] = Failed steps.

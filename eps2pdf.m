@@ -64,7 +64,8 @@ if ispc
 else
     DEF_GS_PATH = 'gs';
 end
-GS_PARAMETERS = '-q -dNOPAUSE -dBATCH -dDOINTERPOLATE -dUseFlateCompression=true -sDEVICE=pdfwrite -r1200';
+%GS_PARAMETERS = '-q -dNOPAUSE -dBATCH -dDOINTERPOLATE -dUseFlateCompression=true -sDEVICE=pdfwrite -r1200';
+GS_PARAMETERS = '-q -dNOPAUSE -dBATCH -dUseFlateCompression=true -sDEVICE=pdfwrite -r1200';
 
 error(nargchk(1,3,nargin));
 if nargin < 2 || isempty(fullGsPath)

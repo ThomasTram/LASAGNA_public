@@ -2,6 +2,7 @@
 /* Stiff ODE evolver for CLASS					*/
 /* 19/11 2010 													*/
 /* Thomas Tram					       							*/
+/* Modified by Rasmus Sloth Hansen, 2013	       							*/
 /****************************************/
 /*	This is an variable order, adaptive stepsize ODE evolver for lasagna.
 	It is based on the Numerical Differentiaion Formulas	of order 1-5,
