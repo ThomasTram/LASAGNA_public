@@ -1,5 +1,5 @@
 /** @file lya_equations.c 
- * Thomas Tram Bülow, 25.08.2011    
+ * Thomas Tram Bülow, 25.08.2011, Rasmus Sloth Hansen 2012
  */
 #include "common.h"
 #include "lya_equations.h"
@@ -100,7 +100,7 @@ int init_lya_param(lya_param *plya){
   /*
     J = [ J_QKE     0 ]
         [ J_X   J_QKE ]
-    as an conservative choice set J_X = J_QKE.
+    since J is unchanged most of the time J_X == 0.
   */
 
   /*

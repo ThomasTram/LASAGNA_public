@@ -5,7 +5,7 @@
 #include "common.h"
 #include "qke_equations.h"
 int init_qke_param(qke_param *pqke){
-  int i,j,k,idx,nz;
+  int i,j,k,idx,nz,kmin,kmax;
   size_t neq;
   double k1,k2;
   double Nres, vres, Tres;
@@ -106,16 +106,19 @@ int init_qke_param(qke_param *pqke){
     J[pqke->index_L][pqke->index_Py_minus+i] = 1;
   //Loop over grid:
   for (j=0; j<vres; j++){
+    // The 51 stencil method uses two numbers on each side:
+    kmin = j-2;
+    kmax = j+3;
     //F-Pa_plus[j] dependence:
-    for (k=max(0,j-1); k<min(vres,j+2); k++)
+    for (k=max(0,kmin); k<min(vres,kmax); k++)
       J[pqke->index_Pa_plus+j][pqke->index_Pa_plus+k] = 1;
     J[pqke->index_Pa_plus+j][pqke->index_Py_plus+j] = 1;
     //F-Pa_minus[j] dependence:
-    for (k=max(0,j-1); k<min(vres,j+2); k++)
+    for (k=max(0,kmin); k<min(vres,kmax); k++)
       J[pqke->index_Pa_minus+j][pqke->index_Pa_minus+k] = 1;
     J[pqke->index_Pa_minus+j][pqke->index_Py_minus+j] = 1;
     //F-Ps_plus[j] dependence:
-    for (k=max(0,j-1); k<min(vres,j+2); k++)
+    for (k=max(0,kmin); k<min(vres,kmax); k++)
       J[pqke->index_Ps_plus+j][pqke->index_Ps_plus+k] = 1;
     J[pqke->index_Ps_plus+j][pqke->index_Py_plus+j] = 1;
     //R_nus_plus dependence:
@@ -124,13 +127,13 @@ int init_qke_param(qke_param *pqke){
       J[pqke->index_Ps_plus+j][pqke->index_Ps_plus+k] = 1;
     }
     //F-Ps_minus[j] dependence:
-    for (k=max(0,j-1); k<min(vres,j+2); k++)
+    for (k=max(0,kmin); k<min(vres,kmax); k++)
       J[pqke->index_Ps_minus+j][pqke->index_Ps_minus+k] = 1;
     J[pqke->index_Ps_minus+j][pqke->index_Py_minus+j] = 1;
     //R_nus_minus dependence:
     J[pqke->index_Ps_minus+j][pqke->index_Pa_minus+j] = 1;
     //F-Px_plus[j] dependence:
-    for (k=max(0,j-1); k<min(vres,j+2); k++)
+    for (k=max(0,kmin); k<min(vres,kmax); k++)
       J[pqke->index_Px_plus+j][pqke->index_Px_plus+k] = 1;
     J[pqke->index_Px_plus+j][pqke->index_L] = 1;
     for (k=0; k<vres; k++)
@@ -138,7 +141,7 @@ int init_qke_param(qke_param *pqke){
     J[pqke->index_Px_plus+j][pqke->index_Py_plus+j] = 1;
     J[pqke->index_Px_plus+j][pqke->index_Py_minus+j] = 1;
     //F-Px_minus[j] dependence:
-    for (k=max(0,j-1); k<min(vres,j+2); k++)
+    for (k=max(0,kmin); k<min(vres,kmax); k++)
       J[pqke->index_Px_minus+j][pqke->index_Px_minus+k] = 1;
     J[pqke->index_Px_minus+j][pqke->index_L] = 1;
     for (k=0; k<vres; k++)
@@ -146,7 +149,7 @@ int init_qke_param(qke_param *pqke){
     J[pqke->index_Px_minus+j][pqke->index_Py_plus+j] = 1;
     J[pqke->index_Px_minus+j][pqke->index_Py_minus+j] = 1;
     //F-Py_plus[j] dependence:
-    for (k=max(0,j-1); k<min(vres,j+2); k++)
+    for (k=max(0,kmin); k<min(vres,kmax); k++)
       J[pqke->index_Py_plus+j][pqke->index_Py_plus+k] = 1;
     J[pqke->index_Py_plus+j][pqke->index_L] = 1;
     for (k=0; k<vres; k++)
@@ -156,7 +159,7 @@ int init_qke_param(qke_param *pqke){
     J[pqke->index_Py_plus+j][pqke->index_Px_minus+j] = 1;
     J[pqke->index_Py_plus+j][pqke->index_Py_plus+j] = 1;
     //F-Py_minus[j] dependence:
-    for (k=max(0,j-1); k<min(vres,j+2); k++)
+    for (k=max(0,kmin); k<min(vres,kmax); k++)
       J[pqke->index_Py_minus+j][pqke->index_Py_minus+k] = 1;
     J[pqke->index_Py_minus+j][pqke->index_L] = 1;
     J[pqke->index_Py_minus+j][pqke->index_Pa_minus+j] = 1;
@@ -408,12 +411,25 @@ int get_resonances_xi(double T,
       xi[1] *=(A+sqrt(A*A-1.0));
     }
   }
+  /*
+  // Third resonance
+  // If a third resonance is used pqke->Nres in input.c must be 3.
+  double V0,V1;
+  V0 = -pqke->delta_m2/(2.0*pqke->T_initial)*cos(2.0*pqke->theta_zero);
+  V1 = -7.0*_PI_*_PI_/(45.0*sqrt(2.0))*
+    _G_F_/_M_Z_/_M_Z_*pow(pqke->T_initial,5)*2*pqke->g_alpha;
+  xi[2] = xi[1];
+  xi[1] = xi[0];
+  xi[0] = sqrt(fabs(V0/V1));
+  */
   // Protect against possible seg fault:
   for (i=0; i<pqke->Nres; i++){
     if(xi[i]>pqke->xmax){
       xi[i] = pqke->xmax;
     }
   }
+
+
   return _SUCCESS_;
 };
 
@@ -455,6 +471,13 @@ int get_resonances_dxidT(double T,
       }
     }
   }
+  /*
+  // Third resonance: 
+  // If a third resonance is used pqke->Nres in input.c must be 3.
+  dxidT[2] = dxidT[1];
+  dxidT[1] = dxidT[0];
+  dxidT[0] = 0;
+  */
   //Make it selfconsistent:
   for (i=0; i<pqke->Nres; i++){
     if(pqke->xi[i]>=(pqke->xmax-1e-12)){
@@ -871,7 +894,7 @@ int get_integrated_quantities(double *y,
       
     *I_VxPy_minus += w_trapz*(x2*f0*Vx*Py_minus);
     *I_f0Pa_plus += w_trapz*(x2*f0*Pa_plus);
-    *I_rho_ss += w_trapz*(x2*f0*Ps); //From equation 2.18 in KS01.
+    *I_rho_ss += w_trapz*(x2*f0*Ps);    //From equation 2.18 in Kainulainen2001.
     *I_rho_ss_bar += w_trapz*(x2*f0*Ps_bar);
     *I_f0 += w_trapz*(x2*f0);
   }
@@ -1191,7 +1214,6 @@ int qke_derivs(double T,
 
     dudTdvdu = dudT_grid[i]*dvdu_grid[i];
 
-
     //Define index steps for calculating derivatives:
     if (i==0)
       stencil_method = 12; //First order, forward   12
@@ -1200,9 +1222,15 @@ int qke_derivs(double T,
     else if ((i==pqke->vres-2)||(i==1))
       stencil_method = 21; //Second order, centered 21
     else
-      stencil_method = 21; //Fifth order, centered  51
-    
-
+      stencil_method = 51; //Fifth order, centered  51
+    /* Do not use higher order than 51.
+    else if ((i==pqke->vres-3)||(i==2))
+      stencil_method = 51; //Fifth order, centered  51
+    else if ((i==pqke->vres-3)||(i==2))
+      stencil_method = 71; //Seventh order, centered  71
+    else
+      stencil_method = 91; //Ninth order, centered  91
+    */
     idx = pqke->index_Pa_plus+i;
     dy[idx] = -1.0/(H*T)*(Vx*Py_plus+Gamma*(2.0*feq_plus/f0-Pa_plus))+
       dudTdvdu*drhodv(y, delta_v, idx, stencil_method);
@@ -1212,7 +1240,7 @@ int qke_derivs(double T,
       dudTdvdu*drhodv(y, delta_v, idx, stencil_method);
 
     idx = pqke->index_Ps_plus+i;
-    dy[idx] = 1.0/(H*T)*(Vx*Py_plus - 
+    dy[idx] = 1.0/(H*T)*(Vx*Py_plus -
 			 rs*Gamma*(1.0/(4.0*I_f0)*I_rho_ss*feq + 
 				   1.0/(4.0*I_f0)*I_rho_ss_bar*feq_bar -
 				   0.5*f0*Ps_plus)) +
@@ -1237,11 +1265,12 @@ int qke_derivs(double T,
     dy[idx] = 1.0/(H*T)*
       (-(V0+V1)*Px_plus-VL*Px_minus+0.5*Vx*(Pa_plus-Ps_plus)+D*Py_plus)+ 
       dudTdvdu*drhodv(y, delta_v, idx, stencil_method);
-   
+
     idx = pqke->index_Py_minus+i;
     dy[idx] = 1.0/(H*T)*
       (-(V0+V1)*Px_minus-VL*Px_plus+0.5*Vx*(Pa_minus-Ps_minus)+D*Py_minus)+
       dudTdvdu*drhodv(y, delta_v, idx, stencil_method);
+
   }
   return _SUCCESS_;
 }
@@ -1390,9 +1419,16 @@ double drhodv(double *rho, double delta_v, int index, int stencil_method){
     drho = (rho[index]-rho[index-1])/delta_v;
   else if (stencil_method == 21)
     drho = (rho[index+1]-rho[index-1])/(2.0*delta_v);
-  else
+  else if (stencil_method == 51)
     drho = (-rho[index+2]+8.0*rho[index+1]
-	    -8.0*rho[index-1]+rho[index-2])/(12*delta_v);
+	    -8.0*rho[index-1]+rho[index-2])/(12.0*delta_v);
+  else if (stencil_method == 71)
+    drho = (rho[index+3]-9.0*rho[index+2]+45.0*rho[index+1]
+	    -45.0*rho[index-1]+9.0*rho[index-2]-rho[index-3])/(60.0*delta_v);
+  else
+    drho = (-3.0*rho[index+4]+32.0*rho[index+3]-168.0*rho[index+2]
+	    +672.0*rho[index+1]-672.0*rho[index-1]+168.0*rho[index-2]
+	    -32.0*rho[index-3]+3.0*rho[index+4])/(840.0*delta_v);
   return drho;
 }
 
