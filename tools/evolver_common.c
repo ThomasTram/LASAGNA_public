@@ -50,6 +50,7 @@ int DefaultEvolverOptions(EvolverOptions *opt, LinAlgWrapper linalg){
     opt->linalg_solve=linalg_solve_sparse;
     opt->use_sparse = _TRUE_;
     break;
+#ifdef _SUPERLU
   case (LINALG_WRAPPER_SUPERLU):
     opt->linalg_initialise=linalg_initialise_SuperLU;
     opt->linalg_finalise=linalg_finalise_SuperLU;
@@ -57,6 +58,7 @@ int DefaultEvolverOptions(EvolverOptions *opt, LinAlgWrapper linalg){
     opt->linalg_solve=linalg_solve_SuperLU;
       opt->use_sparse = _TRUE_;
     break;
+#endif
   default:
     opt->linalg_initialise=NULL;
     opt->linalg_finalise=NULL;
