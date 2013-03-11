@@ -56,6 +56,13 @@ If you are on a filesystem that does not support symbolic links
 (For instance VirtualBox shared folder), you have to make a hard copy
 of this file from /SuperLU_MT_2.0/SRC/slu_mt_Cnames.h.
 
+The maximal amount of memory used by SuperLU must be set manually, and 
+a too low or a too high value might result in a segmentation fault.
+The amount of allocated memory can be increased by changing case 6, 7 
+and 8 in SRC/sp_ienv.c on line 114 to 116. A value of (-100) was found
+appropriate for vres=3200 while (-200) was needed for vres=6400.
+Remember to recompile SuperLU after applying the changes.
+
 iv) Bug reports
 Please write any bug reports and comments to
 rshansen@phys.au.dk or
