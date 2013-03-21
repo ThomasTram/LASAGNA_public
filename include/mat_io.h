@@ -9,6 +9,7 @@
 #define mxSINGLE_CLASS 7
 #define mxDOUBLE_CLASS 6
 #define mxINT32_CLASS 12
+#define mxCHAR_CLASS 4
 /** Storage data types: */
 #define miINT8 1
 #define miUINT8 2
@@ -17,6 +18,7 @@
 #define miSINGLE 7
 #define miDOUBLE 9
 #define miMATRIX 14
+#define miCHAR -1 //This is not at matlab storage type.
 
 /** Macro for updating output file: */
 #define mat_write_fast(ptr,handle,size_element,entries)       		\

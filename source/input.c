@@ -15,7 +15,8 @@ int input_init_from_arguments(int argc,
 		 errmsg,
 		 errmsg);
   }
-  
+  strcpy(pqke->parameter_filename,argv[1]);
+
   lasagna_call(input_init(&fc,
 			  pqke,
 			  errmsg),

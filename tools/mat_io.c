@@ -60,6 +60,11 @@ int mat_add_matrix(char *filename,
     array_class = mxDOUBLE_CLASS;
     type_byte_size = 8;
     break;
+  case miCHAR:
+    data_type = miINT8;
+    array_class = mxCHAR_CLASS;
+    type_byte_size = 1;
+    break;
   default:
     array_class = mxDOUBLE_CLASS;
     type_byte_size = 8;
@@ -243,6 +248,9 @@ int mat_write_data(char *filename,
   case miDOUBLE:
     type_byte_size = 8;
     break;
+  case miINT8:
+    type_byte_size = 1;
+    break;
   default:
     type_byte_size = 8;
     printf("Warning: type not recognized!\n");
@@ -311,6 +319,9 @@ int mat_read_data(char *filename,
     break;
   case miDOUBLE:
     type_byte_size = 8;
+    break;
+  case miINT8:
+    type_byte_size = 1;
     break;
   default:
     type_byte_size = 8;

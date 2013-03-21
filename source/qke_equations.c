@@ -616,10 +616,12 @@ int qke_init_output(qke_param *pqke){
   int Tres=pqke->Tres;
   int vres=pqke->vres;
   int Nres=pqke->Nres;
-  int handle;
+  int handle, f_size;
   double tmp_array[3];
   int32_t tmp_array_int[3];
   char *outf=pqke->output_filename;
+  char *parameters;
+  FILE *parameter_file;
   //Initialises the output file and stores parameters
   mat_create_file(outf);
   //Add matrices that are defined on momentum grid:
@@ -654,6 +656,19 @@ int qke_init_output(qke_param *pqke){
   mat_add_matrix(outf,"Tres_vres",miINT32,1,2,&handle);
   mat_add_matrix(outf,"xmin_xext_xmax",miDOUBLE,1,3,&handle);
   mat_add_matrix(outf,"alpha_rs",miDOUBLE,1,2,&handle);
+  //Open parameter file and save it to the output file.
+  parameter_file = fopen(pqke->parameter_filename, "r");
+  if(parameter_file){
+    fseek(parameter_file,0,SEEK_END);
+    f_size = ftell(parameter_file);
+    fseek(parameter_file,0, SEEK_SET);
+    parameters = malloc(sizeof(char)*f_size);
+    fread(parameters, 1, f_size, parameter_file);
+    mat_add_matrix(outf,"parameters",miCHAR,strlen(parameters),1,&handle);
+    mat_write_data(outf,"parameters",parameters,0,strlen(parameters));
+  } else{
+    printf("Failed to open parameter file and write it to output file.\n");
+  }
   //Write parameters and stuff we know in advance:
   //Temperature - we could write it here, but its nice to have non-computed
   //T values = 0:

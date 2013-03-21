@@ -9,6 +9,7 @@
 typedef struct qke_param_structure{
   FILE *tmp;
   char output_filename[_FILENAMESIZE_]; //Where to write output.
+  char parameter_filename[_FILENAMESIZE_];
   int evolver;   //Which time integrator to use
   LinAlgWrapper LinearAlgebraWrapper; //Wrapper for LU-decompositions
   int nproc;     //Number of cores available.
