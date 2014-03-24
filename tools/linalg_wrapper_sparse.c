@@ -73,7 +73,7 @@ int linalg_initialise_sparse(MultiMatrix *A,
   lasagna_alloc(ws,sizeof(SP_structure),error_message);
   switch (A->Dtype){
   case (L_DBL):
-    lasagna_call(sp_num_alloc(&( (sp_num *) ws->SparseNumerical), 
+    lasagna_call(sp_num_alloc(((sp_num **) &ws->SparseNumerical), 
 			      ncol, 
 			      error_message),
 		 error_message,error_message);
@@ -89,7 +89,7 @@ int linalg_initialise_sparse(MultiMatrix *A,
     spmat_dbl->Ax = (double *) Store->Ax;
     break;
   case (L_DBL_CX):
-    lasagna_call(sp_num_alloc_cx(&( (sp_num_cx *) ws->SparseNumerical), 
+    lasagna_call(sp_num_alloc_cx(((sp_num_cx **) &ws->SparseNumerical), 
 				 ncol, 
 				 error_message),
 		 error_message,error_message);
