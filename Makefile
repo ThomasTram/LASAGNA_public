@@ -47,6 +47,7 @@ ifeq ($(use_superlu),yes)
 EVO_TOOLS  = multimatrix.o evolver_common.o sparse.o linalg_wrapper_dense_NR.o linalg_wrapper_sparse.o linalg_wrapper_SuperLU.o
 else
 EVO_TOOLS  = multimatrix.o evolver_common.o sparse.o linalg_wrapper_dense_NR.o linalg_wrapper_sparse.o
+EXTRA_FILES = tools/linalg_wrapper_SuperLU.c include/linalg_wrapper_SuperLU.h
 endif 
 IO_TOOLS = mat_io.o parser.o
 TOOLS = $(IO_TOOLS) $(EVO_TOOLS) newton.o evolver_ndf15.o  arrays.o evolver_rk45.o evolver_radau5.o  
@@ -117,7 +118,7 @@ test_wrapper_sparse: $(EVO_TOOLS)$ $(TEST_WRAPPER_SPARSE)
 	$(CC) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) $(LIBSLU)/$(SUPERLULIB) $(BLASLIB) $(MPLIB) -lm
 
 tar:
-	tar czvf lasagna_1.0.tar.gz $(C_ALL) $(H_ALL) $(MISC_FILES)
+	tar czvf lasagna_1.0.tar.gz $(C_ALL) $(H_ALL) $(MISC_FILES) $(EXTRA_FILES)
 
 clean: .base
 	rm -rf $(WRKDIR);
