@@ -1378,6 +1378,7 @@ int qke_derivs_fixed_grid(double T,
     //Regulator for sterile population:
     rs = pqke->rs;
     //Distributions:
+    feq = 1.0/(1.0+exp(x-mu_div_T));
     feq_bar = 1.0/(1.0+exp(x+mu_div_T));
     feq_plus = feq + feq_bar;
     feq_plus = feq + feq_bar;
